@@ -13,10 +13,10 @@ import (
 func TestMgmtAPI(t *testing.T) {
 	m, err := NewManager(t.TempDir(), "")
 	if err != nil {
-		t.Skipf("database unavailable (%v) — skipping management API test", err)
+		t.Skipf("database unavailable (%v) -- skipping management API test", err)
 	}
 	if m.pg == nil {
-		t.Skip("postgres unavailable — skipping management API test")
+		t.Skip("postgres unavailable -- skipping management API test")
 	}
 	td := t.TempDir()
 	s := New(context.Background(), m, td, td, td)
@@ -42,7 +42,7 @@ func TestMgmtAPI(t *testing.T) {
 		return rec.Code, out
 	}
 
-	// agents list — must include at least the seeded builtins
+	// agents list -- must include at least the seeded builtins
 	code, out := do("GET", "/api/agents", nil)
 	if code != 200 {
 		t.Fatalf("GET agents: %d", code)
@@ -51,14 +51,14 @@ func TestMgmtAPI(t *testing.T) {
 		t.Fatalf("want >=5 agents (seeded builtins), got %d", len(ags))
 	}
 
-	// invalid template var → 400 (catalog whitelist)
+	// invalid template var -> 400 (catalog whitelist)
 	code, out = do("PUT", "/api/agents/planner/prompt", map[string]string{"template": "hi {{.Nope}}"})
 	if code != 400 {
 		t.Fatalf("bad var should be 400, got %d (%v)", code, out)
 	}
 
-	// valid template using seeded catalog vars → 200
-	code, _ = do("PUT", "/api/agents/planner/prompt", map[string]string{"template": "你是规划者，目标：{{.Goal}}，摘要 {{.AssetSummary}}"})
+	// valid template using seeded catalog vars -> 200
+	code, _ = do("PUT", "/api/agents/planner/prompt", map[string]string{"template": "You are the planner; goal: {{.Goal}}, summary {{.AssetSummary}}"})
 	if code != 200 {
 		t.Fatalf("valid prompt save: %d", code)
 	}
@@ -68,11 +68,11 @@ func TestMgmtAPI(t *testing.T) {
 	if code != 200 {
 		t.Fatalf("preview: %d", code)
 	}
-	if rendered, _ := out["rendered"].(string); rendered == "" || rendered == "你是规划者，目标：{{.Goal}}，摘要 {{.AssetSummary}}" {
+	if rendered, _ := out["rendered"].(string); rendered == "" || rendered == "You are the planner; goal: {{.Goal}}, summary {{.AssetSummary}}" {
 		t.Fatalf("preview did not substitute: %q", out["rendered"])
 	}
 
-	// mcp create → visible to planner → resource-side sees planner → delete clears it
+	// mcp create -> visible to planner -> resource-side sees planner -> delete clears it
 	// Remove any leftover from prior run to keep the test idempotent.
 	m.pg.Exec(`DELETE FROM mcp_servers WHERE name = 't-itest'`)
 	code, out = do("POST", "/api/mcp", map[string]any{"name": "t-itest", "transport": "stdio", "command": "x", "enabled": true})

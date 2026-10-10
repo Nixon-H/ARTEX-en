@@ -32,7 +32,7 @@ func rawString(raw json.RawMessage) string {
 type TaskDTO struct {
 	ID                 string             `json:"id"`
 	ExplorationID      int64              `json:"exploration_id"`
-	Name               string             `json:"name"` // 可选任务名称;空=未命名
+	Name               string             `json:"name"` // Optional task name; empty = unnamed
 	CategoryID         *int64             `json:"category_id,omitempty"`
 	CategoryName       string             `json:"category_name,omitempty"`
 	Pinned             bool               `json:"pinned"`
@@ -50,8 +50,8 @@ type TaskDTO struct {
 	Tokens             TokenTotalDTO      `json:"tokens"` // whole-task token consumption
 	GoalsTotal         int                `json:"goals_total"`
 	GoalsMet           int                `json:"goals_met"`
-	InFlight           int                `json:"in_flight"`                // 运行中 Worker 数（state=running 的意图）
-	Findings           FindingSeverityDTO `json:"findings"`                 // 该任务已登记的漏洞数（findings 表，按严重度分档）
+	InFlight           int                `json:"in_flight"`                // Running Worker count (intents with state=running)
+	Findings           FindingSeverityDTO `json:"findings"`                 // Number of vulnerabilities registered for this task (findings table, bucketed by severity)
 	LLMProfileID       *int64             `json:"llm_profile_id,omitempty"` // LLM profile used for this task; nil = default
 	LLMProfileIDs      []int64            `json:"llm_profile_ids"`
 	ActiveLLMProfileID *int64             `json:"active_llm_profile_id,omitempty"`
@@ -60,10 +60,10 @@ type TaskDTO struct {
 	SourceTaskIDs      []string           `json:"source_task_ids"`
 	ArchiveBlockedBy   string             `json:"archive_blocked_by_task_id,omitempty"`
 	CompanyIDs         []int64            `json:"company_ids"`
-	CoverageEnabled    bool               `json:"coverage_enabled"` // 资产覆盖度功能开关(创建时定)
+	CoverageEnabled    bool               `json:"coverage_enabled"` // Asset-coverage feature flag (fixed at creation)
 }
 
-// FindingSeverityDTO 是任务列表里按严重度分档的漏洞计数（严重/高/中/低）。
+// FindingSeverityDTO is the vulnerability count by severity in the task list (critical/high/medium/low).
 type FindingSeverityDTO struct {
 	Critical int `json:"critical"`
 	High     int `json:"high"`
@@ -174,7 +174,7 @@ func trafficDTOs(ex []traffic.ExchangeMeta) []TrafficExchangeDTO {
 	return out
 }
 
-// ---- TaskNode (frontend "TaskNode") — frontier, intents, exploration graph nodes ----
+// ---- TaskNode (frontend "TaskNode") -- frontier, intents, exploration graph nodes ----
 
 type TaskNodeDTO struct {
 	ID           string `json:"id"`
@@ -186,7 +186,7 @@ type TaskNodeDTO struct {
 	TS           string `json:"ts"`
 	SourceTaskID string `json:"source_task_id,omitempty"`
 	Inherited    bool   `json:"inherited,omitempty"`
-	DeleteReason string `json:"delete_reason,omitempty"` // 意图假删除(state='deleted')时的删除原因
+	DeleteReason string `json:"delete_reason,omitempty"` // deletion reason when an intent is soft-deleted (state='deleted')
 }
 
 func taskNodeDTO(n *db.Node) TaskNodeDTO {
@@ -207,8 +207,8 @@ func taskNodeDTO(n *db.Node) TaskNodeDTO {
 	return d
 }
 
-// GoalDTO is a goal node with its payload unpacked into text/vulnclass — the shape
-// the 总览「目标管理」UI works with (vs TaskNodeDTO which carries raw payload JSON).
+// GoalDTO is a goal node with its payload unpacked into text/vulnclass -- the shape
+// the overview "goal management" UI works with (vs TaskNodeDTO which carries raw payload JSON).
 type GoalDTO struct {
 	ID        string `json:"id"`
 	Text      string `json:"text"`
@@ -242,7 +242,7 @@ func goalDTOs(in []*db.Node) []GoalDTO {
 	return out
 }
 
-// ConstraintDTO is one operation constraint (allow/deny) for the 总览「约束管理」UI.
+// ConstraintDTO is one operation constraint (allow/deny) for the Overview "Constraint Management" UI.
 type ConstraintDTO struct {
 	ID     string `json:"id"`
 	Kind   string `json:"kind"` // allow | deny
@@ -259,7 +259,7 @@ func taskNodeDTOs(in []*db.Node) []TaskNodeDTO {
 	return out
 }
 
-// ---- Edge (frontend "Edge") — exploration edges and asset edges ----
+// ---- Edge (frontend "Edge") -- exploration edges and asset edges ----
 
 type EdgeDTO struct {
 	Src string `json:"src"`
@@ -310,14 +310,14 @@ type FindingDTO struct {
 	TrafficBindings       []db.FindingTrafficBinding `json:"traffic_bindings,omitempty"`
 
 	ID        string `json:"id"`
-	FindingID string `json:"finding_id,omitempty"` // standalone findings-table id — the handle for status updates
+	FindingID string `json:"finding_id,omitempty"` // standalone findings-table id -- the handle for status updates
 	VulnClass string `json:"vulnclass"`
-	Name      string `json:"name,omitempty"` // 漏洞名称;为空时前端回退展示 vulnclass
+	Name      string `json:"name,omitempty"` // Vulnerability name; when empty the frontend falls back to showing vulnclass
 	Severity  string `json:"severity"`       // critical | high | medium | low
 	Status    string `json:"status"`         // pending | in_progress | confirmed | resolved | fixed | false_positive | ignored | duplicate | risk_accepted
 	Summary   string `json:"summary"`
 	Evidence  string `json:"evidence"`
-	Report    string `json:"report,omitempty"` // 详细报告(Markdown);仅详情接口返回,列表为空
+	Report    string `json:"report,omitempty"` // Detailed report (Markdown); returned only by the detail endpoint, empty in lists
 
 	IntentID        string            `json:"intent_id,omitempty"`
 	ParamID         string            `json:"param_id,omitempty"`
@@ -398,8 +398,8 @@ func findingDTO(n *db.Node) FindingDTO {
 }
 
 // findingDTOsForTask converts a task's finding nodes to DTOs, stamping each with
-// the owning task's id/description so the global 发现 page can group across tasks.
-// meta maps node id → the standalone findings row (id + status + asset ids), so the
+// the owning task's id/description so the global discovery page can group across tasks.
+// meta maps node id -> the standalone findings row (id + status + asset ids), so the
 // per-task view shows the same triage state and anchored assets as the global page;
 // nodes with no row keep the 'pending' default and no finding_id (not editable).
 // assets pre-resolves the anchored asset rows for label rendering.
@@ -530,7 +530,7 @@ func activityDTOs(in []db.Activity) []ActivityDTO {
 	return out
 }
 
-// ---- Agent (frontend "Agent") — string id ----
+// ---- Agent (frontend "Agent") -- string id ----
 
 type AgentDTO struct {
 	ID               string `json:"id"`
@@ -544,12 +544,12 @@ type AgentDTO struct {
 	RunSecs          int    `json:"run_seconds"`
 	WebSearch        bool   `json:"web_search"`
 	InteractiveShell bool   `json:"interactive_shell"`
-	LLMProfileID     *int64 `json:"llm_profile_id"` // 绑定的 LLM 配置;null=跟随任务/全局
-	// P3 触发后处理策略(仅自定义 agent 有意义)。
+	LLMProfileID     *int64 `json:"llm_profile_id"` // Bound LLM config; null=follow task/global
+	// Post-processing policy after a P3 trigger (meaningful only for custom agents).
 	TriggerRunMode     string `json:"trigger_run_mode"`
 	TriggerMergeMode   string `json:"trigger_merge_mode"`
 	TriggerMaxParallel int    `json:"trigger_max_parallel"`
-	// binding counts (populated only by the list endpoint) — shown on agent cards.
+	// binding counts (populated only by the list endpoint) -- shown on agent cards.
 	McpCount   int `json:"mcp_count"`
 	SkillCount int `json:"skill_count"`
 	ToolCount  int `json:"tool_count"`
@@ -583,7 +583,7 @@ func agentDTOs(in []*db.Agent) []AgentDTO {
 	return out
 }
 
-// ---- LLMProfile (frontend "LLMProfile") — string id ----
+// ---- LLMProfile (frontend "LLMProfile") -- string id ----
 
 type LLMProfileDTO struct {
 	ID              string  `json:"id"`
@@ -599,23 +599,23 @@ type LLMProfileDTO struct {
 	ThinkingType    string  `json:"thinking_type"`
 	ReasoningEffort string  `json:"reasoning_effort"`
 	IsDefault       bool    `json:"is_default"`
-	// 轮询(故障转移)参数：priority 越大越先被选中(激活配置恒为链首)；
-	// pool_exclude=true 则不作为故障转移目标，但仍可被 agent/任务显式绑定。
+	// Round-robin (failover) parameters: larger priority is selected first (the active config is always head of the chain);
+	// With pool_exclude=true it is not a failover target, but can still be explicitly bound by an agent/task.
 	Priority    int  `json:"priority"`
 	PoolExclude bool `json:"pool_exclude"`
-	// 收发模式：true=流式(SSE) | false=非流式。没有 omitempty —— false 必须出现在
-	// 响应里，否则前端读不到「非流式」，开关会回落成默认的流式。
+	// send/receive mode: true=streaming(SSE) | false=non-streaming.without omitempty ---- false must appear in
+	// ... must be in the response, otherwise the frontend cannot read "non-streaming" and the toggle falls back to default streaming.
 	Streaming bool `json:"streaming"`
-	// 单次回复输出上限(0=不发送，由服务端默认值决定)，以及它用哪个请求字段名
-	// (''=max_tokens | 'max_completion_tokens'，仅 openai 格式有意义)。
+	// Per-reply output cap (0=do not send; decided by the server-side default), and which request field name it uses
+	// (''=max_tokens | 'max_completion_tokens', only openai meaningful only for).
 	MaxTokens      int    `json:"max_tokens"`
 	MaxTokensField string `json:"max_tokens_field"`
-	// 自定义会话头名：非空时每次请求带该 HTTP 头，头值=当前会话/意图的 session id。
-	// ''=不发送。用于按 session-id 头做提示缓存/粘性路由的网关。
+	// Custom session header name: when non-empty, each request carries this HTTP header with value = the current session/intent's session id.
+	// ''=do not send. For gateways doing prompt caching/sticky routing by session-id header.
 	SessionHeaderKey string `json:"session_header_key"`
-	// 本配置对重试的覆盖(建连/空响应/同 provider 安全窗口)。每项 attempts:
-	// 0=继承全局策略 | -1=关闭该层重试 | >0=次数；interval_ms: 0=用默认指数退避 |
-	// >0=改用该固定毫秒间隔。全 0 = 完全跟随全局，即历史行为。
+	// This config's overrides for retries (connection setup / empty responses / same-provider safety window). Per-item attempts:
+	// 0=inherit global policy | -1=disable retries at this layer | >0=retry count; interval_ms: 0=use the default exponential backoff |
+	// >0=use that fixed millisecond interval instead. All 0 = fully follow the global setting, i.e. the historical behavior.
 	Retry db.RetryOverride `json:"retry"`
 }
 

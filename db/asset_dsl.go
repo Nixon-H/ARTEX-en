@@ -25,8 +25,8 @@ func andNode(cs []*astNode) *astNode { return &astNode{kind: "and", children: cs
 func orNode(cs []*astNode) *astNode  { return &astNode{kind: "or", children: cs} }
 func leafNode(e Expr) *astNode       { return &astNode{kind: "leaf", expr: &e} }
 
-// knownStringFields maps DSL field name → SQL column name.
-// NOTE: "type" is intentionally excluded — it is a separate parameter, not a DSL field.
+// knownStringFields maps DSL field name -> SQL column name.
+// NOTE: "type" is intentionally excluded -- it is a separate parameter, not a DSL field.
 var knownStringFields = map[string]string{
 	"domain":       "domain",
 	"root_domain":  "root_domain",
@@ -45,14 +45,14 @@ var knownStringFields = map[string]string{
 	"record_type":  "record_type",
 }
 
-// knownArrayFields maps DSL field name → SQL column name (array).
+// knownArrayFields maps DSL field name -> SQL column name (array).
 var knownArrayFields = map[string]string{
 	"technology":   "technologies",
 	"technologies": "technologies",
 	"tech":         "technologies",
 }
 
-// knownNumericFields maps DSL field name → SQL column name (integer).
+// knownNumericFields maps DSL field name -> SQL column name (integer).
 var knownNumericFields = map[string]string{
 	"port":        "port",
 	"status_code": "status_code",
@@ -207,14 +207,14 @@ func (p *dslParser) parseAtom() (*astNode, error) {
 			return nil, err
 		}
 		if p.peek().kind != tkRP {
-			return nil, fmt.Errorf("DSL 语法错误：缺少右括号 ')'")
+			return nil, fmt.Errorf("DSL syntax error: missing closing parenthesis ')'")
 		}
 		p.consume()
 		return node, nil
 	case tkEOF:
-		return nil, fmt.Errorf("DSL 语法错误：表达式不完整")
+		return nil, fmt.Errorf("DSL syntax error: incomplete expression")
 	default:
-		return nil, fmt.Errorf("DSL 语法错误：意外的 token '%s'", t.kind)
+		return nil, fmt.Errorf("DSL syntax error: unexpected token '%s'", t.kind)
 	}
 }
 
@@ -244,7 +244,7 @@ func ParseDSL(s string) (*astNode, error) {
 		return nil, err
 	}
 	if p.peek().kind != tkEOF {
-		return nil, fmt.Errorf("DSL 语法错误：意外的内容 '%s'", p.peek().kind)
+		return nil, fmt.Errorf("DSL syntax error: unexpected content '%s'", p.peek().kind)
 	}
 	return node, nil
 }
@@ -259,7 +259,7 @@ var fullTextCols = []string{
 
 type whereBuilder struct {
 	args []any
-	base int // placeholders are numbered base+1, base+2, …; 0 = the usual $1, $2, …
+	base int // placeholders are numbered base+1, base+2, ...; 0 = the usual $1, $2, ...
 }
 
 func (b *whereBuilder) next(v any) string {
@@ -316,7 +316,7 @@ func (b *whereBuilder) buildLeaf(e Expr) (string, error) {
 	if f == "task_id" {
 		n, err := strconv.ParseInt(e.Value, 10, 64)
 		if err != nil {
-			return "", fmt.Errorf("task_id 需要整数值: %s", e.Value)
+			return "", fmt.Errorf("task_id requires an integer value: %s", e.Value)
 		}
 		return b.next(n) + " = ANY(task_ids)", nil
 	}
@@ -325,7 +325,7 @@ func (b *whereBuilder) buildLeaf(e Expr) (string, error) {
 	if f == "company_id" {
 		n, err := strconv.ParseInt(e.Value, 10, 64)
 		if err != nil {
-			return "", fmt.Errorf("company_id 需要整数值: %s", e.Value)
+			return "", fmt.Errorf("company_id requires an integer value: %s", e.Value)
 		}
 		return "company_id = " + b.next(n), nil
 	}
@@ -334,14 +334,14 @@ func (b *whereBuilder) buildLeaf(e Expr) (string, error) {
 	if col, ok := knownNumericFields[f]; ok {
 		n, err := strconv.Atoi(e.Value)
 		if err != nil {
-			return "", fmt.Errorf("字段 %s 需要整数值: %s", f, e.Value)
+			return "", fmt.Errorf("Field %s requires an integer value: %s", f, e.Value)
 		}
 		op := e.Op
 		if op == "==" {
 			op = "="
 		}
 		if op != "=" && op != "!=" && op != ">" && op != ">=" && op != "<" && op != "<=" {
-			return "", fmt.Errorf("字段 %s 不支持运算符 %s", f, e.Op)
+			return "", fmt.Errorf("Field %s does not support operator %s", f, e.Op)
 		}
 		return fmt.Sprintf("%s %s %s", col, op, b.next(n)), nil
 	}
@@ -357,7 +357,7 @@ func (b *whereBuilder) buildLeaf(e Expr) (string, error) {
 			p := b.next("%" + e.Value + "%")
 			return "EXISTS (SELECT 1 FROM unnest(" + col + ") t(v) WHERE v ILIKE " + p + ")", nil
 		default:
-			return "", fmt.Errorf("数组字段 %s 不支持运算符 %s", f, e.Op)
+			return "", fmt.Errorf("Array field %s does not support operator %s", f, e.Op)
 		}
 	}
 
@@ -371,11 +371,11 @@ func (b *whereBuilder) buildLeaf(e Expr) (string, error) {
 		case "!=":
 			return col + " NOT ILIKE " + b.next("%"+e.Value+"%"), nil
 		default:
-			return "", fmt.Errorf("字符串字段 %s 不支持运算符 %s", f, e.Op)
+			return "", fmt.Errorf("String field %s does not support operator %s", f, e.Op)
 		}
 	}
 
-	return "", fmt.Errorf("未知字段: %s", f)
+	return "", fmt.Errorf("Unknown field: %s", f)
 }
 
 func buildDSLWhere(node *astNode) (string, []any, error) {
@@ -478,7 +478,7 @@ func ValidateDSL(dsl string) error {
 }
 
 // CountDSL returns the total number of assets matching a DSL expression (and optional
-// type), for server-side pagination — same WHERE as QueryDSL, without LIMIT/OFFSET.
+// type), for server-side pagination -- same WHERE as QueryDSL, without LIMIT/OFFSET.
 // taskID > 0 scopes the count to assets attached to that task.
 func (s *AssetStore) CountDSL(dsl, typ string, taskID int64) (int, error) {
 	node, err := ParseDSL(dsl)
@@ -550,10 +550,10 @@ func (s *AssetStore) QueryDSL(dsl, typ string, taskID int64, limit, offset int) 
 }
 
 // QueryDSLInScope is QueryDSL restricted to assets that BELONG to taskID's (and its
-// direct source tasks') declared scope — membership, not literal value: a
+// direct source tasks') declared scope -- membership, not literal value: a
 // root_domain scope returns every subdomain / service / endpoint under it. This is
 // the agent-facing list_assets path, so an agent queries the task's relevant assets
-// instead of the whole shared库. taskID<=0 (non-task contexts: Auto / pentest / chat)
+// instead of the whole shared library. taskID<=0 (non-task contexts: Auto / pentest / chat)
 // has no scope to honor and falls back to the plain global QueryDSL. Rows carry the
 // same per-task source metadata as QueryByTask.
 func (s *AssetStore) QueryDSLInScope(dsl, typ string, taskID int64, limit, offset int) ([]*Asset, error) {

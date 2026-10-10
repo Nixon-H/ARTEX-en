@@ -2,7 +2,7 @@ package db
 
 import "time"
 
-// AssetInterceptRule is one row of asset_intercept_rules — a global asset
+// AssetInterceptRule is one row of asset_intercept_rules -- a global asset
 // blocklist entry. Unlike intercept_rules (which matches tool name / input),
 // these match the *target asset*: an exact/fuzzy domain·ip·url, or a CIDR range.
 // This layer only stores rules; the matching/enforcement logic lives elsewhere.
@@ -13,8 +13,8 @@ type AssetInterceptRule struct {
 	Pattern   string    `json:"pattern"`
 	Note      string    `json:"note"`
 	Builtin   bool      `json:"builtin"`
-	// Action 仅用于任务级规则：'block'=拦截 'allow'=允许(白名单)。
-	// 全局规则(asset_intercept_rules)不带此列，恒为空，视为拦截。
+	// Action is only for task-level rules: 'block' = intercept, 'allow' = permit (allowlist).
+	// Global rules (asset_intercept_rules) lack this column, always empty, treated as block.
 	Action    string    `json:"action,omitempty"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`

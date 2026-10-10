@@ -67,7 +67,7 @@ var reAgentKey = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
 // pgReady returns the PG handle, or writes 503 and returns nil if unavailable.
 func (s *Server) pg(w http.ResponseWriter) *db.DB {
 	if s.m.pg == nil {
-		writeErr(w, 503, "管理后台数据源(PostgreSQL)未连接")
+		writeErr(w, 503, "Admin backend data source (PostgreSQL) not connected")
 		return nil
 	}
 	return s.m.pg
@@ -119,7 +119,7 @@ func (s *Server) abortTaskDelete(taskID string) {
 			state := task.lifecycleSnapshot()
 			keepPaused = state.Paused || state.Queued
 			if getErr != nil {
-				log.Printf("[task-delete] task %s 读取持久状态失败，使用内存状态恢复屏障: %v", taskID, getErr)
+				log.Printf("[task-delete] task %s failed to read persisted state, restoring the barrier from in-memory state: %v", taskID, getErr)
 			}
 		} else if getErr == nil {
 			// The request targeted a task that does not exist. Do not retain a
@@ -133,7 +133,7 @@ func (s *Server) abortTaskDelete(taskID string) {
 func (s *Server) pgDeleteTask(w http.ResponseWriter, r *http.Request) {
 	id, ok := canonicalTaskID(r.PathValue("id"))
 	if !ok {
-		writeErr(w, http.StatusBadRequest, "任务 id 无效")
+		writeErr(w, http.StatusBadRequest, "Task ID invalid")
 		return
 	}
 	var opts DeleteTaskOptions
@@ -142,7 +142,7 @@ func (s *Server) pgDeleteTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !s.beginTaskDelete(id) {
-		writeErr(w, http.StatusConflict, "任务正在删除")
+		writeErr(w, http.StatusConflict, "Task is being deleted")
 		return
 	}
 	deleted := false
@@ -158,7 +158,7 @@ func (s *Server) pgDeleteTask(w http.ResponseWriter, r *http.Request) {
 	drainCtx, cancelDrain := context.WithTimeout(r.Context(), taskDeleteDrainTimeout)
 	defer cancelDrain()
 	if err := s.waitTaskQuiescent(drainCtx, id); err != nil {
-		writeErr(w, http.StatusConflict, "任务仍有运行中的 Agent，删除已取消")
+		writeErr(w, http.StatusConflict, "Task still has running Agents; deletion cancelled")
 		return
 	}
 
@@ -230,7 +230,7 @@ func (s *Server) pgListAgents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	dtos := agentDTOs(ags)
-	// overlay per-agent binding counts (mcp/skill by id, tools by key) — best-effort.
+	// overlay per-agent binding counts (mcp/skill by id, tools by key) -- best-effort.
 	if mcp, skill, tools, err := pg.AgentBindingCounts(); err == nil {
 		for i := range dtos {
 			dtos[i].McpCount = mcp[ags[i].ID]
@@ -255,15 +255,15 @@ func (s *Server) pgCreateAgent(w http.ResponseWriter, r *http.Request) {
 	}
 	req.Key, req.Name = strings.TrimSpace(req.Key), strings.TrimSpace(req.Name)
 	if !reAgentKey.MatchString(req.Key) {
-		writeErr(w, 400, "key 需小写字母开头，仅含小写字母/数字/下划线")
+		writeErr(w, 400, "key must start with a lowercase letter and contain only lowercase letters/digits/underscores")
 		return
 	}
 	if req.Name == "" {
-		writeErr(w, 400, "名称不能为空")
+		writeErr(w, 400, "Name cannot be empty")
 		return
 	}
 	if exist, _ := pg.GetAgentByKey(req.Key); exist != nil {
-		writeErr(w, 409, "该 key 已存在")
+		writeErr(w, 409, "This key already exists")
 		return
 	}
 	a, err := pg.CreateAgent(req.Key, req.Name, req.Description)
@@ -273,7 +273,7 @@ func (s *Server) pgCreateAgent(w http.ResponseWriter, r *http.Request) {
 	}
 	// starter prompt so the editor shows something editable from the start.
 	if err := pg.SeedPromptIfEmpty(a.ID, agent.DefaultAssistantPrompt); err != nil {
-		log.Printf("[agents] seed starter prompt for %s 失败: %v", a.Key, err)
+		log.Printf("[agents] seed starter prompt for %s failed: %v", a.Key, err)
 	}
 	writeJSON(w, 200, agentDTO(a))
 }
@@ -285,7 +285,7 @@ func (s *Server) pgUpdateAgent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if a.Builtin {
-		writeErr(w, 400, "内置 agent 不可修改名称/描述")
+		writeErr(w, 400, "Built-in agents do not allow name/description edits")
 		return
 	}
 	var req struct{ Name, Description string }
@@ -295,7 +295,7 @@ func (s *Server) pgUpdateAgent(w http.ResponseWriter, r *http.Request) {
 	}
 	req.Name = strings.TrimSpace(req.Name)
 	if req.Name == "" {
-		writeErr(w, 400, "名称不能为空")
+		writeErr(w, 400, "Name cannot be empty")
 		return
 	}
 	if err := pg.UpdateAgentMeta(a.Key, req.Name, req.Description); err != nil {
@@ -313,7 +313,7 @@ func (s *Server) pgDeleteAgent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if a.Builtin {
-		writeErr(w, 400, "内置 agent 不可删除")
+		writeErr(w, 400, "Built-in agents cannot be deleted")
 		return
 	}
 	if err := pg.DeleteAgent(a.Key); err != nil {
@@ -321,10 +321,10 @@ func (s *Server) pgDeleteAgent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := pg.RemoveAgentFromToolBindings(a.Key); err != nil {
-		log.Printf("[agents] 清理 %s 工具绑定失败: %v", a.Key, err)
+		log.Printf("[agents] failed to clean up %s tool bindings: %v", a.Key, err)
 	}
 	if err := pg.DeleteTriggersForAgent(a.Key); err != nil {
-		log.Printf("[agents] 清理 %s 触发器失败: %v", a.Key, err)
+		log.Printf("[agents] failed to clean up %s triggers: %v", a.Key, err)
 	}
 	writeJSON(w, 200, map[string]any{"deleted": a.Key})
 }
@@ -361,9 +361,9 @@ func (s *Server) pgSaveAgentConfig(w http.ResponseWriter, r *http.Request) {
 		RunSeconds       *int  `json:"run_seconds"`
 		WebSearch        *bool `json:"web_search"`
 		InteractiveShell *bool `json:"interactive_shell"`
-		// llm_profile_id 三态:字段缺省=不动;显式 null=解绑(跟随任务/全局);数字=绑定该 profile。
+		// llm_profile_id tristate: field omitted = unchanged; explicit null = unbound (follows task/global); number = bound to that profile.
 		LLMProfileID json.RawMessage `json:"llm_profile_id"`
-		// P3 触发后处理策略(三者一起可选,提供任一即整体写入;未提供则不动)。
+		// P3 post-trigger handling policy (all three jointly optional; providing any one writes the whole set; untouched when none is provided).
 		TriggerRunMode     *string `json:"trigger_run_mode"`
 		TriggerMergeMode   *string `json:"trigger_merge_mode"`
 		TriggerMaxParallel *int    `json:"trigger_max_parallel"`
@@ -373,15 +373,15 @@ func (s *Server) pgSaveAgentConfig(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	profileChanged := false
-	if req.LLMProfileID != nil { // key present (数字 或 null)
+	if req.LLMProfileID != nil { // key present (number or null)
 		var id *int64
 		if err := json.Unmarshal(req.LLMProfileID, &id); err != nil {
-			writeErr(w, 400, "llm_profile_id 格式错误")
+			writeErr(w, 400, "llm_profile_id has an invalid format")
 			return
 		}
-		if id != nil { // 绑定:校验目标 profile 有效
+		if id != nil { // Bind: validate that the target profile is valid
 			if _, ok := s.loadProfileConfig(*id); !ok {
-				writeErr(w, 400, "指定的 LLM 配置不存在或无效")
+				writeErr(w, 400, "specified LLM configuration does not exist or is invalid")
 				return
 			}
 		}
@@ -423,8 +423,8 @@ func (s *Server) pgSaveAgentConfig(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	// P3 触发策略:三者作为一组写入(SetAgentTriggerBehavior 一次写三列),缺的字段用
-	// 当前存量值回填,避免只传一个把另两个覆盖成默认。
+	// P3 trigger policy: the three are written as a group (SetAgentTriggerBehavior writes three columns at once); missing fields are backfilled with
+	// current stored values, to avoid passing only one and overwriting the other two with defaults.
 	if req.TriggerRunMode != nil || req.TriggerMergeMode != nil || req.TriggerMaxParallel != nil {
 		runMode, mergeMode, maxPar := a.TriggerRunMode, a.TriggerMergeMode, a.TriggerMaxParallel
 		if req.TriggerRunMode != nil {
@@ -483,7 +483,7 @@ func (s *Server) pgGetAgent(w http.ResponseWriter, r *http.Request) {
 	if sk == nil {
 		sk = []string{}
 	}
-	// 可选 LLM 配置列表(id/name/model/是否默认),供前端渲染 "默认模型" 下拉;当前绑定见 agent.llm_profile_id。
+	// Optional LLM config list (id/name/model/whether default), for the frontend to render the "default model" dropdown; see agent.llm_profile_id for the current binding.
 	profs, _ := pg.ListProfiles()
 	llmProfiles := make([]map[string]any, 0, len(profs))
 	for _, p := range profs {
@@ -494,13 +494,13 @@ func (s *Server) pgGetAgent(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, map[string]any{
 		"agent": agentDTO(a), "prompt": cur, "variables": vars, "versions": vers,
 		"visibility":   map[string]any{"mcp": mcp, "skill": sk},
-		"llm_profiles": llmProfiles, // 可绑定的 LLM 配置候选
+		"llm_profiles": llmProfiles, // Candidate LLM configs available for binding
 
-		"wrapup_prompt":            a.WrapupPrompt,                  // 已保存的收尾提示词(空=用内置默认)
-		"wrapup_default":           agent.WrapupDefault(a.Key),      // 内置默认(供占位/恢复默认)
-		"wrapup_max_turns":         a.WrapupMaxTurns,                // 已保存的收尾轮数(0=用内置默认)
-		"wrapup_max_turns_default": agent.WrapupTurnsDefault(a.Key), // 内置默认轮数(供 "0=默认N" 提示)
-		// 任务级超时收尾词(仅 worker/planner 有内置默认;task_timeout_supported 供前端决定是否显示该分区)
+		"wrapup_prompt":            a.WrapupPrompt,                  // Saved wrap-up prompt (empty = use built-in default)
+		"wrapup_default":           agent.WrapupDefault(a.Key),      // Built-in default (for placeholders/restoring defaults)
+		"wrapup_max_turns":         a.WrapupMaxTurns,                // Saved finalization rounds (0=use built-in default)
+		"wrapup_max_turns_default": agent.WrapupTurnsDefault(a.Key), // built-in default rounds (for "0=default N" Prompt)
+		// Task-level timeout wrap-up text (only worker/planner have built-in defaults; task_timeout_supported lets the frontend decide whether to show this section)
 		"task_timeout_wrapup_supported":         agent.TaskTimeoutWrapupDefault(a.Key) != "",
 		"task_timeout_wrapup_prompt":            a.TaskTimeoutWrapupPrompt,
 		"task_timeout_wrapup_default":           agent.TaskTimeoutWrapupDefault(a.Key),
@@ -533,7 +533,7 @@ func (s *Server) pgSavePrompt(w http.ResponseWriter, r *http.Request) {
 }
 
 // pgResetPrompt restores an agent's prompt body to the in-code built-in default
-// (段 [A]). Only built-in agents have a code default; custom agents have none.
+// (paragraph [A]). Only built-in agents have a code default; custom agents have none.
 func (s *Server) pgResetPrompt(w http.ResponseWriter, r *http.Request) {
 	pg, a, ok := s.agentByKey(w, r)
 	if !ok {
@@ -541,7 +541,7 @@ func (s *Server) pgResetPrompt(w http.ResponseWriter, r *http.Request) {
 	}
 	tmpl, has := agent.BuiltinPromptSeeds()[a.Key]
 	if !has {
-		writeErr(w, 400, "该 agent 无内置默认提示词，无法恢复")
+		writeErr(w, 400, "this agent no built-in default prompt, Cannot restore")
 		return
 	}
 	ver, err := pg.ResetPromptToDefault(a.ID, tmpl)
@@ -552,8 +552,8 @@ func (s *Server) pgResetPrompt(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, map[string]any{"version": ver})
 }
 
-// pgSaveWrapup stores an agent's wrap-up (settlement) prompt — the text injected on
-// timeout / step-exhaustion. Empty body clears the override → built-in default.
+// pgSaveWrapup stores an agent's wrap-up (settlement) prompt -- the text injected on
+// timeout / step-exhaustion. Empty body clears the override -> built-in default.
 func (s *Server) pgSaveWrapup(w http.ResponseWriter, r *http.Request) {
 	pg, a, ok := s.agentByKey(w, r)
 	if !ok {
@@ -608,7 +608,7 @@ func (s *Server) pgResetWrapup(w http.ResponseWriter, r *http.Request) {
 }
 
 // pgSaveTaskTimeoutWrapup stores an agent's TASK-TIMEOUT wrap-up prompt + turn budget
-// (worker/planner only). Empty prompt / 0 turns clear the override → built-in default.
+// (worker/planner only). Empty prompt / 0 turns clear the override -> built-in default.
 func (s *Server) pgSaveTaskTimeoutWrapup(w http.ResponseWriter, r *http.Request) {
 	pg, a, ok := s.agentByKey(w, r)
 	if !ok {
@@ -622,7 +622,7 @@ func (s *Server) pgSaveTaskTimeoutWrapup(w http.ResponseWriter, r *http.Request)
 		writeErr(w, 400, err.Error())
 		return
 	}
-	turns := a.TaskTimeoutWrapupMaxTurns // 未传则保留原值
+	turns := a.TaskTimeoutWrapupMaxTurns // keep the original value if not passed
 	if body.MaxTurns != nil {
 		turns = *body.MaxTurns
 		if turns < 0 {
@@ -636,7 +636,7 @@ func (s *Server) pgSaveTaskTimeoutWrapup(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, 200, map[string]any{"ok": true})
 }
 
-// pgResetTaskTimeoutWrapup clears the task-timeout wrap-up override → built-in default.
+// pgResetTaskTimeoutWrapup clears the task-timeout wrap-up override -> built-in default.
 func (s *Server) pgResetTaskTimeoutWrapup(w http.ResponseWriter, r *http.Request) {
 	pg, a, ok := s.agentByKey(w, r)
 	if !ok {
@@ -738,7 +738,7 @@ func (s *Server) pgSetAgentVisibility(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, map[string]any{"ok": true})
 }
 
-// ---------- tools (内置工具目录) ----------
+// ---------- tools (built-in tool catalog) ----------
 
 func (s *Server) pgListTools(w http.ResponseWriter, r *http.Request) {
 	pg := s.pg(w)
@@ -757,7 +757,7 @@ func (s *Server) pgListTools(w http.ResponseWriter, r *http.Request) {
 	// catalog query, so agent assembly never pays for this aggregate.
 	counts, countErr := pg.ToolUsageCounts()
 	if countErr != nil {
-		log.Printf("[tools] 读取调用统计失败: %v", countErr)
+		log.Printf("[tools] Failed to read call stats: %v", countErr)
 	} else {
 		for _, tool := range ts {
 			tool.Calls = counts[tool.Key]
@@ -767,7 +767,7 @@ func (s *Server) pgListTools(w http.ResponseWriter, r *http.Request) {
 }
 
 // pgUpdateTool saves the page-editable fields of a built-in tool: description,
-// parameter schema (structure is expected unchanged — only per-param description/
+// parameter schema (structure is expected unchanged -- only per-param description/
 // default move), agent binding, and enabled. key is taken from the path and never
 // changes (it is welded to the Go handler).
 func (s *Server) pgUpdateTool(w http.ResponseWriter, r *http.Request) {
@@ -782,7 +782,7 @@ func (s *Server) pgUpdateTool(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if cur == nil {
-		writeErr(w, 404, "工具不存在: "+key)
+		writeErr(w, 404, "Tool does not exist: "+key)
 		return
 	}
 	var body struct {
@@ -804,7 +804,7 @@ func (s *Server) pgUpdateTool(w http.ResponseWriter, r *http.Request) {
 }
 
 // pgResetTool overwrites a tool row with its code-defined defaults (description,
-// schema, agent binding) and re-enables it — the explicit "恢复默认" action, since
+// schema, agent binding) and re-enables it -- the explicit "Restore defaults" action, since
 // startup seeding is first-insert-only and never overwrites edits.
 func (s *Server) pgResetTool(w http.ResponseWriter, r *http.Request) {
 	pg := s.pg(w)
@@ -825,7 +825,7 @@ func (s *Server) pgResetTool(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 200, map[string]any{"ok": true})
 		return
 	}
-	// orchestration/platform tools (auto agent) — default-bind to "auto".
+	// orchestration/platform tools (auto agent) -- default-bind to "auto".
 	autoAgents, _ := json.Marshal([]string{"auto"})
 	for _, t := range append(s.orchestrationTools(), s.platformTools()...) {
 		if t.Name() != key {
@@ -839,7 +839,7 @@ func (s *Server) pgResetTool(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, 200, map[string]any{"ok": true})
 		return
 	}
-	writeErr(w, 404, "非内置工具或不存在: "+key)
+	writeErr(w, 404, "Not a built-in tool or does not exist: "+key)
 }
 
 // ---------- mcp ----------
@@ -883,7 +883,7 @@ func (s *Server) pgSaveMCP(w http.ResponseWriter, r *http.Request) {
 		m.ID = id
 		ctx, cancel := context.WithTimeout(r.Context(), 45*time.Second)
 		if derr := s.discoverAndCacheMCP(ctx, &m); derr != nil {
-			log.Printf("[mcp] %s 添加后工具发现失败: %v", m.Name, derr)
+			log.Printf("[mcp] tool discovery failed after adding %s: %v", m.Name, derr)
 		}
 		cancel()
 	}
@@ -924,13 +924,13 @@ func (s *Server) pgRefreshMCP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if target == nil {
-		writeErr(w, 404, "MCP 不存在")
+		writeErr(w, 404, "MCP does not exist")
 		return
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 45*time.Second)
 	defer cancel()
 	if err := s.discoverAndCacheMCP(ctx, target); err != nil {
-		writeErr(w, 502, "工具发现失败："+err.Error())
+		writeErr(w, 502, "Tool discovery failed:"+err.Error())
 		return
 	}
 	tools, _ := pg.MCPToolsDetailed(id)
@@ -955,7 +955,7 @@ func (s *Server) pgMCPTools(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, map[string]any{"tools": tools})
 }
 
-// ---------- skills (文件系统) ----------
+// ---------- skills (file system) ----------
 
 type skillFileNode struct {
 	Name          string   `json:"name"`
@@ -965,7 +965,7 @@ type skillFileNode struct {
 	MCPs          []string `json:"mcps,omitempty"`
 	Files         []string `json:"files"`
 	// Usage ledger (db/skill_usage.go). Calls is 0 and LastUsed nil for a skill that
-	// was never invoked — the ledger only has rows for skills agents actually loaded.
+	// was never invoked -- the ledger only has rows for skills agents actually loaded.
 	Calls    int        `json:"calls"`
 	Tasks    int        `json:"tasks"`
 	Agents   []string   `json:"usage_agents"`
@@ -994,7 +994,7 @@ func (s *Server) fsListSkills(w http.ResponseWriter, r *http.Request) {
 	if s.m.pg != nil {
 		stats, err := s.m.pg.SkillStats()
 		if err != nil {
-			log.Printf("[skills] 读取调用统计失败: %v", err)
+			log.Printf("[skills] Failed to read invocation stats: %v", err)
 		}
 		for _, st := range stats {
 			statBySkill[st.Skill] = st
@@ -1033,7 +1033,7 @@ func (s *Server) fsSkillUsage(w http.ResponseWriter, r *http.Request) {
 	}
 	name := r.PathValue("name")
 	if !validSkillName(name) {
-		writeErr(w, 400, "非法 skill 名")
+		writeErr(w, 400, "Illegal skill name")
 		return
 	}
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
@@ -1045,7 +1045,7 @@ func (s *Server) fsSkillUsage(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, map[string]any{"calls": calls})
 }
 
-// fsMissingSkills lists skill names agents asked for that do not exist — the gap
+// fsMissingSkills lists skill names agents asked for that do not exist -- the gap
 // list, i.e. which procedures are worth writing next.
 func (s *Server) fsMissingSkills(w http.ResponseWriter, r *http.Request) {
 	pg := s.pg(w)
@@ -1194,7 +1194,7 @@ func rewriteSkillFrontmatter(content []byte, mcps *[]string, description, licens
 	if fmEnd < 0 {
 		return nil, fmt.Errorf("SKILL.md frontmatter is not closed")
 	}
-	// Collect existing key → value from frontmatter (preserve unknown keys)
+	// Collect existing key -> value from frontmatter (preserve unknown keys)
 	type kv struct{ k, v string }
 	var pairs []kv
 	for _, l := range lines[1:fmEnd] {
@@ -1277,7 +1277,7 @@ func skillNameFromFrontmatter(md []byte) string {
 		}
 		if inFM && strings.HasPrefix(t, "name:") {
 			v := strings.TrimSpace(strings.TrimPrefix(t, "name:"))
-			return strings.Trim(v, `"'`) // name: "中文技能" 也认
+			return strings.Trim(v, `"'`) // name: "中文技能" is accepted as-is
 		}
 	}
 	return ""
@@ -1293,7 +1293,7 @@ func (s *Server) fsUploadSkill(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxSkillZipBytes)
 	file, hdr, err := r.FormFile("file")
 	if err != nil {
-		writeErr(w, 400, "缺少上传文件(表单字段 file)或超出大小限制")
+		writeErr(w, 400, "Missing uploaded file (form field file) or size limit exceeded")
 		return
 	}
 	defer file.Close()
@@ -1307,14 +1307,14 @@ func (s *Server) fsUploadSkill(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, 400, err.Error())
 		return
 	}
-	// entries carry UTF-8-decoded names (GBK 包也能读) and exclude archiver junk.
+	// entries carry UTF-8-decoded names (GBK packages are also readable) and exclude archiver junk.
 	entriesAll := skillZipEntries(zr)
 	if err := checkSkillZipMethods(entriesAll); err != nil {
 		writeErr(w, 400, err.Error())
 		return
 	}
 
-	// locate the shallowest SKILL.md → its directory is the skill root inside the zip.
+	// locate the shallowest SKILL.md -> its directory is the skill root inside the zip.
 	var skillMD *skillZipEntry
 	for i := range entriesAll {
 		e := &entriesAll[i]
@@ -1326,7 +1326,7 @@ func (s *Server) fsUploadSkill(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if skillMD == nil {
-		writeErr(w, 400, "压缩包内未找到 SKILL.md")
+		writeErr(w, 400, "SKILL.md not found in the archive")
 		return
 	}
 	root := path.Dir(skillMD.name) // "." when SKILL.md is at the zip root
@@ -1338,7 +1338,7 @@ func (s *Server) fsUploadSkill(w http.ResponseWriter, r *http.Request) {
 	// derive + validate the skill name from the SKILL.md frontmatter.
 	md, err := readZipEntry(skillMD.f)
 	if err != nil {
-		writeErr(w, 400, "读取 SKILL.md 失败："+err.Error())
+		writeErr(w, 400, "Failed to read SKILL.md:"+err.Error())
 		return
 	}
 	name := skillNameFromFrontmatter(md)
@@ -1350,19 +1350,19 @@ func (s *Server) fsUploadSkill(w http.ResponseWriter, r *http.Request) {
 		name = strings.TrimSuffix(base, path.Ext(base))
 	}
 	if !validSkillName(name) {
-		writeErr(w, 400, "skill 名称无效（取自 SKILL.md 的 name 字段）："+name+
-			"（≤64 字符，字母开头，只能用小写字母/数字/连字符或中文等非 ASCII 字母，不能有空格、点、路径分隔符）")
+		writeErr(w, 400, "skill name is invalid (taken from the name field of SKILL.md):"+name+
+			" (max 64 chars, must start with a letter, only lowercase letters/digits/hyphens or non-ASCII letters such as Chinese allowed, no spaces, dots, or path separators)")
 		return
 	}
 
 	skillPath := filepath.Join(s.skillDir, name)
 	overwrite := r.URL.Query().Get("overwrite") == "true"
 	if _, err := os.Stat(skillPath); err == nil && !overwrite {
-		writeErr(w, 409, "skill 已存在："+name+"（如需覆盖请确认后重试）")
+		writeErr(w, 409, "skill already exists:"+name+"(confirm and retry to overwrite)")
 		return
 	}
 
-	// extract into a temp dir first, then atomically swap in — a bad entry aborts
+	// extract into a temp dir first, then atomically swap in -- a bad entry aborts
 	// the whole upload without leaving a half-written skill.
 	_ = os.MkdirAll(s.skillDir, 0o755)
 	tmp, err := os.MkdirTemp(s.skillDir, ".upload-*")
@@ -1386,15 +1386,15 @@ func (s *Server) fsUploadSkill(w http.ResponseWriter, r *http.Request) {
 		}
 		clean, msg := skillRelPath(rel)
 		if msg != "" {
-			writeErr(w, 400, "压缩包含非法路径 "+e.name+"："+msg)
+			writeErr(w, 400, "Archive contains an illegal path "+e.name+": "+msg)
 			return
 		}
 		if entries++; entries > maxSkillEntries {
-			writeErr(w, 400, "压缩包文件过多")
+			writeErr(w, 400, "Too many files in the archive")
 			return
 		}
 		if f.UncompressedSize64 > maxSkillFileBytes {
-			writeErr(w, 400, "文件过大："+rel)
+			writeErr(w, 400, "File too large:"+rel)
 			return
 		}
 		dst := filepath.Join(tmp, clean)
@@ -1422,12 +1422,12 @@ func (s *Server) fsUploadSkill(w http.ResponseWriter, r *http.Request) {
 		}
 		total += n
 		if total > maxSkillTotalBytes {
-			writeErr(w, 400, "压缩包解压后过大")
+			writeErr(w, 400, "Archive too large after extraction")
 			return
 		}
 	}
 	if _, err := os.Stat(filepath.Join(tmp, "SKILL.md")); err != nil {
-		writeErr(w, 400, "解压后缺少 SKILL.md")
+		writeErr(w, 400, "SKILL.md missing after extraction")
 		return
 	}
 
@@ -1435,7 +1435,7 @@ func (s *Server) fsUploadSkill(w http.ResponseWriter, r *http.Request) {
 		_ = os.RemoveAll(skillPath)
 	}
 	if err := os.Rename(tmp, skillPath); err != nil {
-		writeErr(w, 500, "安装失败："+err.Error())
+		writeErr(w, 500, "Install failed:"+err.Error())
 		return
 	}
 	writeJSON(w, 201, map[string]any{"name": name, "files": entries})
@@ -1475,14 +1475,14 @@ func (s *Server) fsDeleteSkill(w http.ResponseWriter, r *http.Request) {
 
 // skillPathBlocked lists the ASCII characters a skill-relative path may not contain.
 // '\' is a Windows separator; '%' keeps double-URL-encoding tricks from surviving
-// (Go's net/http URL-decodes PathValue once — %2F→/ %2e→. — so an attacker sending
+// (Go's net/http URL-decodes PathValue once -- %2F->/ %2e->. -- so an attacker sending
 // %252e%252e arrives here as the literal "%2e%2e" and is rejected on the '%'); '#'
 // and '?' would truncate the path when it travels back through a URL; the rest are
 // reserved on Windows filesystems.
 const skillPathBlocked = `\%#?*:"<>|`
 
 // skillPathRune reports whether r may appear in a client-supplied skill path.
-// It is a blacklist over Unicode rather than an ASCII whitelist so that 中文 (and any
+// It is a blacklist over Unicode rather than an ASCII whitelist so that Chinese (and any
 // other script) file names work, while everything that makes path validation hard is
 // still refused: control/format characters, look-alike whitespace, separators.
 func skillPathRune(r rune) bool {
@@ -1492,9 +1492,9 @@ func skillPathRune(r rune) bool {
 	case strings.ContainsRune(skillPathBlocked, r):
 		return false
 	case unicode.Is(unicode.Cf, r), unicode.Is(unicode.Co, r), unicode.Is(unicode.Cs, r):
-		return false // zero-width joiners, bidi overrides (RLO 文件名伪装), private use
+		return false // zero-width joiners, bidi overrides (RLO filename spoofing), private use
 	case r != ' ' && unicode.IsSpace(r):
-		return false // NBSP / 全角空格 之类：看着是空格，其实不是
+		return false // Things like NBSP / full-width spaces: they look like spaces but are not
 	}
 	return true
 }
@@ -1507,7 +1507,7 @@ const maxSkillPathLen = 512
 // Validation order matters: character check first (before Clean) so encoding tricks
 // can't survive normalization.
 func skillRelPath(file string) (string, string) {
-	// 1. Character check — before normalization. Defeats null bytes, backslash,
+	// 1. Character check -- before normalization. Defeats null bytes, backslash,
 	//    '%', control characters and unicode look-alikes; CJK names pass through.
 	if file == "" || len(file) > maxSkillPathLen {
 		return "", "invalid path: empty or too long"
@@ -1796,7 +1796,7 @@ func (s *Server) pgSaveProfile(w http.ResponseWriter, r *http.Request) {
 	// read; accept it here via a sibling field for create/update. Streaming is a
 	// *bool shadowing the embedded json:"streaming": an absent field must default
 	// to streaming (true), which a plain bool zero value (false = non-streaming)
-	// would get wrong — legacy/partial clients that never send it stay streaming.
+	// would get wrong -- legacy/partial clients that never send it stay streaming.
 	var body struct {
 		db.LLMProfile
 		APIKey    string `json:"api_key"`
@@ -1809,9 +1809,9 @@ func (s *Server) pgSaveProfile(w http.ResponseWriter, r *http.Request) {
 	p := body.LLMProfile
 	p.APIKey = body.APIKey
 	p.Streaming = body.Streaming == nil || *body.Streaming
-	// 输出上限:负数无意义,归零(= 不发送该字段)。字段名开关只有 Chat Completions
-	// 用得上——anthropic 与 openai-responses 各自定死了字段名,存下来只会误导后续读者,
-	// 故非 openai 格式一律清空。未知取值同样清空,避免把 DB CHECK 的报错甩给用户。
+	// Output cap: negative numbers are meaningless, normalized to zero (= this field is not sent). The field-name switch applies to Chat Completions only.
+	// ... is of any use -- anthropic and openai-responses each pinned their own field names; persisting them would only mislead later readers,
+	// Hence non-openai formats are all cleared. Unknown values are likewise cleared, to avoid surfacing DB CHECK errors to the user.
 	if p.MaxTokens < 0 {
 		p.MaxTokens = 0
 	}
@@ -1834,8 +1834,8 @@ func (s *Server) pgSaveProfile(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, map[string]any{"id": id})
 }
 
-// pgGetLLMRetryPolicy 返回全局重试策略(五层各自的次数+间隔)。未配置过 → 全零，
-// 前端把零显示成「默认」。
+// pgGetLLMRetryPolicy returns the global retry policy (attempts + interval for each of the five layers). If never configured -> all zeros,
+// The frontend displays zero as "default".
 func (s *Server) pgGetLLMRetryPolicy(w http.ResponseWriter, r *http.Request) {
 	pg := s.pg(w)
 	if pg == nil {
@@ -1844,9 +1844,9 @@ func (s *Server) pgGetLLMRetryPolicy(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, pg.LLMRetryPolicy())
 }
 
-// pgSaveLLMRetryPolicy 保存全局重试策略。三个「跟着端点走」的层(建连/空响应/同
-// provider 安全窗口)是 provider 的构建参数或调用参数，改完必须让缓存里的 provider
-// 重建；熔断参数则直接推给进程级 Registry。
+// pgSaveLLMRetryPolicy saves the global retry policy. The three layers that "follow the endpoint" (connect / empty response / same
+// provider safety window) are provider build or call parameters; after changing them the cached providers must be
+// rebuilt; circuit-breaker parameters are pushed directly to the process-level Registry.
 func (s *Server) pgSaveLLMRetryPolicy(w http.ResponseWriter, r *http.Request) {
 	pg := s.pg(w)
 	if pg == nil {
@@ -1876,11 +1876,11 @@ func (s *Server) pgDeleteProfile(w http.ResponseWriter, r *http.Request) {
 	if err := pg.DeleteProfileContext(r.Context(), id); err != nil {
 		switch {
 		case errors.Is(err, db.ErrActiveLLMProfileDelete):
-			writeErr(w, 409, "当前激活的 LLM 配置不能删除，请先激活其他配置")
+			writeErr(w, 409, "The currently active LLM configuration cannot be deleted; please activate another configuration first")
 		case errors.Is(err, db.ErrLLMProfileReferencesChanged):
-			writeErr(w, 409, "LLM 配置正在被任务或会话修改，请重试")
+			writeErr(w, 409, "LLM config is being modified by a task or session, please retry")
 		case errors.Is(err, context.DeadlineExceeded):
-			writeErr(w, 409, "等待 LLM 配置引用释放超时，请重试")
+			writeErr(w, 409, "Timed out waiting for LLM config references to release, please retry")
 		case errors.Is(err, db.ErrLLMProfileNotFound):
 			writeErr(w, 404, err.Error())
 		default:
@@ -1938,9 +1938,9 @@ func (s *Server) pgActivateProfile(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, 200, map[string]any{"ok": true})
 }
 
-// pgLLMPoolStatus reports the failover ("轮询") switches, the resolved chain order
-// and every profile's circuit-breaker state — what the LLM page renders as the
-// "轮询顺序" strip and the per-card health badges.
+// pgLLMPoolStatus reports the failover ("polling") switches, the resolved chain order
+// and every profile's circuit-breaker state -- what the LLM page renders as the
+// "Polling order" strip and the per-card health badges.
 func (s *Server) pgLLMPoolStatus(w http.ResponseWriter, r *http.Request) {
 	if s.pg(w) == nil {
 		return
@@ -1949,7 +1949,7 @@ func (s *Server) pgLLMPoolStatus(w http.ResponseWriter, r *http.Request) {
 }
 
 // pgLLMPoolReset clears a tripped profile's circuit breaker so the next call
-// tries it again immediately ("立即恢复"). id=0 clears every profile.
+// tries it again immediately ("Restore immediately"). id=0 clears every profile.
 func (s *Server) pgLLMPoolReset(w http.ResponseWriter, r *http.Request) {
 	pg := s.pg(w)
 	if pg == nil {
@@ -1996,7 +1996,7 @@ func (s *Server) pgListModels(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if apiKey == "" {
-		writeJSON(w, 200, map[string]any{"ok": false, "error": "未提供 API Key"})
+		writeJSON(w, 200, map[string]any{"ok": false, "error": "API Key not provided"})
 		return
 	}
 
@@ -2005,7 +2005,7 @@ func (s *Server) pgListModels(w http.ResponseWriter, r *http.Request) {
 
 	// Candidate endpoints to try in order. Some Anthropic-compatible providers
 	// (e.g. DeepSeek) implement /v1/messages under an /anthropic path but expose
-	// the model list only on their OpenAI-format path — so for anthropic we fall
+	// the model list only on their OpenAI-format path -- so for anthropic we fall
 	// back to the OpenAI endpoint at the stripped root.
 	type candidate struct {
 		url string
@@ -2064,19 +2064,19 @@ func (s *Server) pgListModels(w http.ResponseWriter, r *http.Request) {
 	for _, c := range candidates {
 		httpReq, err := http.NewRequestWithContext(r.Context(), http.MethodGet, c.url, nil)
 		if err != nil {
-			lastErr = "构建请求失败: " + err.Error()
+			lastErr = "Failed to build request: " + err.Error()
 			continue
 		}
 		httpReq.Header = c.hdr
 		resp, err := client.Do(httpReq)
 		if err != nil {
-			lastErr = "请求失败: " + err.Error()
+			lastErr = "Request failed: " + err.Error()
 			continue
 		}
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, 4<<20))
 		resp.Body.Close()
 		if resp.StatusCode != http.StatusOK {
-			lastErr = fmt.Sprintf("API 返回 %d: %s", resp.StatusCode, string(body[:min(len(body), 512)]))
+			lastErr = fmt.Sprintf("API returned %d: %s", resp.StatusCode, string(body[:min(len(body), 512)]))
 			continue
 		}
 		// Both OpenAI and Anthropic return {"data": [{"id": "..."},...]}.
@@ -2086,7 +2086,7 @@ func (s *Server) pgListModels(w http.ResponseWriter, r *http.Request) {
 			} `json:"data"`
 		}
 		if err := json.Unmarshal(body, &parsed); err != nil {
-			lastErr = "解析响应失败: " + err.Error()
+			lastErr = "Failed to parse response: " + err.Error()
 			continue
 		}
 		models := make([]string, 0, len(parsed.Data))
@@ -2099,27 +2099,27 @@ func (s *Server) pgListModels(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, 200, map[string]any{"ok": true, "models": models})
 			return
 		}
-		emptyOK = true // 200 but no model ids — keep trying other candidates
+		emptyOK = true // 200 but no model ids -- keep trying other candidates
 	}
 	if emptyOK {
 		writeJSON(w, 200, map[string]any{"ok": true, "models": []string{}})
 		return
 	}
 	if lastErr == "" {
-		lastErr = "未获取到模型列表"
+		lastErr = "No model list retrieved"
 	}
 	writeJSON(w, 200, map[string]any{"ok": false, "error": lastErr})
 }
 
-// --- prompt template helpers (Go text/template + catalog 白名单) ---
+// --- prompt template helpers (Go text/template + catalog allowlist) ---
 
 // globalPromptVars are runtime variables available to EVERY agent (built-in and
 // custom) regardless of its per-agent catalog. Each agent's render path fills them
 // (see agent.nowStr, rendered fresh each turn), so a prompt may always reference
-// {{.Now}} — e.g. subtract it from a fixed start stamp to reason about elapsed time.
+// {{.Now}} -- e.g. subtract it from a fixed start stamp to reason about elapsed time.
 var globalPromptVars = []db.PromptVar{
-	{Name: "Now", Description: "服务端当前时间（每次运行实时刷新；可与固定起始时间相减判断已用时长）", Example: "2026-08-11 14:30:00 CST", Source: "runtime"},
-	{Name: "DataDir", Description: "服务端数据根目录（所有任务/会话产物的根；各 agent 实际写盘在其下的子目录，如 <DataDir>/<taskID>）", Example: "/app/data", Source: "runtime"},
+	{Name: "Now", Description: "Server current time (refreshed live on every run; subtract from the fixed start time to determine elapsed time)", Example: "2026-08-11 14:30:00 CST", Source: "runtime"},
+	{Name: "DataDir", Description: "Server data root directory (root of all task/session artifacts; each agent actually writes to a subdirectory under it, e.g. <DataDir>/<taskID>)", Example: "/app/data", Source: "runtime"},
 }
 
 // withGlobalVars appends the universal runtime vars onto an agent's own catalog,
@@ -2147,7 +2147,7 @@ func withGlobalVars(vars []db.PromptVar) []db.PromptVar {
 func validateTemplate(tmpl string, catalog []db.PromptVar) string {
 	t, err := template.New("p").Option("missingkey=error").Parse(tmpl)
 	if err != nil {
-		return "模板语法错误: " + err.Error()
+		return "Template syntax error: " + err.Error()
 	}
 	allowed := map[string]bool{}
 	for _, v := range catalog {
@@ -2155,7 +2155,7 @@ func validateTemplate(tmpl string, catalog []db.PromptVar) string {
 	}
 	for _, name := range templateFields(t) {
 		if !allowed[name] {
-			return "变量 {{." + name + "}} 不在该 agent 允许列表"
+			return "Variable {{." + name + "}} is not in this agent's allowlist"
 		}
 	}
 	return ""

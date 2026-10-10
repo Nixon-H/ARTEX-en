@@ -50,14 +50,14 @@ func (sc *Scheduler) Run(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-t.C:
-			sc.s.reconcileConcurrency() // 并发上限:有空位就把排队任务补位启动
+			sc.s.reconcileConcurrency() // Concurrency cap: start queued tasks whenever slots free up
 			sc.step()
 		}
 	}
 }
 
 // init seeds the watermarks on first run so pre-existing findings/goals don't all
-// fire at once — only events created AFTER the scheduler first starts count.
+// fire at once -- only events created AFTER the scheduler first starts count.
 func (sc *Scheduler) init() {
 	if sc.mustState(schedKeyLastFinding) == "" {
 		var maxID int64
@@ -142,13 +142,13 @@ func (sc *Scheduler) fireIntervals(triggers []*db.AgentTrigger) {
 			continue
 		}
 		_ = sc.pg.TouchTriggerFire(tr.ID)
-		ctx := "\n\n【本次为定时触发】" + now.Format(" 2006-01-02 15:04:05 MST")
-		sc.s.StartTriggeredRun(tr.AgentKey, fmt.Sprintf("定时触发 · %s", now.Format("15:04")), tr.IntervalMessage+ctx, 0, false, "", "")
+		ctx := "\n\n[This run is a scheduled trigger]" + now.Format(" 2006-01-02 15:04:05 MST")
+		sc.s.StartTriggeredRun(tr.AgentKey, fmt.Sprintf("Scheduled trigger · %s", now.Format("15:04")), tr.IntervalMessage+ctx, 0, false, "", "")
 	}
 }
 
 // fireFindings fires on_finding triggers for findings above the persisted
-// watermark (monotonic node id → no double-fire across restarts).
+// watermark (monotonic node id -> no double-fire across restarts).
 func (sc *Scheduler) fireFindings(triggers []*db.AgentTrigger) {
 	var want []*db.AgentTrigger
 	for _, tr := range triggers {
@@ -172,10 +172,10 @@ func (sc *Scheduler) fireFindings(triggers []*db.AgentTrigger) {
 		if len(want) == 0 {
 			continue
 		}
-		msgCtx := fmt.Sprintf("\n\n【本次由任务发现 finding 触发】\n发现: [%s/%s] %s",
+		msgCtx := fmt.Sprintf("\n\n[This time triggered by task findings finding]\nFindings: [%s/%s] %s",
 			e.VulnClass, e.Severity, e.Summary)
 		for _, tr := range want {
-			sc.s.StartTriggeredRun(tr.AgentKey, fmt.Sprintf("finding 触发 · task#%d", e.TaskID), tr.FindingMessage+msgCtx, e.TaskID, true, e.TaskDesc, e.TaskGoal)
+			sc.s.StartTriggeredRun(tr.AgentKey, fmt.Sprintf("finding triggered · task#%d", e.TaskID), tr.FindingMessage+msgCtx, e.TaskID, true, e.TaskDesc, e.TaskGoal)
 		}
 	}
 	_ = sc.pg.SetSchedState(schedKeyLastFinding, strconv.FormatInt(maxID, 10))
@@ -206,9 +206,9 @@ func (sc *Scheduler) fireGoals(triggers []*db.AgentTrigger) {
 		if len(want) == 0 {
 			continue
 		}
-		msgCtx := fmt.Sprintf("\n\n【本次由任务完成目标触发】\n达成目标: %s", e.Summary)
+		msgCtx := fmt.Sprintf("\n\n[triggered by task-goal completion this time]\nGoal achieved: %s", e.Summary)
 		for _, tr := range want {
-			sc.s.StartTriggeredRun(tr.AgentKey, fmt.Sprintf("目标触发 · task#%d", e.TaskID), tr.GoalMessage+msgCtx, e.TaskID, true, e.TaskDesc, e.TaskGoal)
+			sc.s.StartTriggeredRun(tr.AgentKey, fmt.Sprintf("Goal trigger · task#%d", e.TaskID), tr.GoalMessage+msgCtx, e.TaskID, true, e.TaskDesc, e.TaskGoal)
 		}
 	}
 	if changed {
@@ -217,7 +217,7 @@ func (sc *Scheduler) fireGoals(triggers []*db.AgentTrigger) {
 }
 
 // fireTaskTimeouts fires on_task_timeout triggers for tasks that newly reached
-// status='timeout' above the persisted watermark (task id → no double-fire).
+// status='timeout' above the persisted watermark (task id -> no double-fire).
 func (sc *Scheduler) fireTaskTimeouts(triggers []*db.AgentTrigger) {
 	var want []*db.AgentTrigger
 	for _, tr := range triggers {
@@ -230,7 +230,7 @@ func (sc *Scheduler) fireTaskTimeouts(triggers []*db.AgentTrigger) {
 	if err != nil || len(events) == 0 {
 		return
 	}
-	// Advance the watermark even with no active trigger — see fireFindings.
+	// Advance the watermark even with no active trigger -- see fireFindings.
 	maxID := last
 	for _, e := range events {
 		if e.NodeID > maxID {
@@ -239,16 +239,16 @@ func (sc *Scheduler) fireTaskTimeouts(triggers []*db.AgentTrigger) {
 		if len(want) == 0 {
 			continue
 		}
-		msgCtx := "\n\n【本次由任务超时触发】"
+		msgCtx := "\n\n[This run was triggered by task timeout]"
 		for _, tr := range want {
-			sc.s.StartTriggeredRun(tr.AgentKey, fmt.Sprintf("超时触发 · task#%d", e.TaskID), tr.TaskTimeoutMessage+msgCtx, e.TaskID, true, e.TaskDesc, e.TaskGoal)
+			sc.s.StartTriggeredRun(tr.AgentKey, fmt.Sprintf("Timeout trigger · task#%d", e.TaskID), tr.TaskTimeoutMessage+msgCtx, e.TaskID, true, e.TaskDesc, e.TaskGoal)
 		}
 	}
 	_ = sc.pg.SetSchedState(schedKeyLastTimeout, strconv.FormatInt(maxID, 10))
 }
 
 // fireTaskCreates fires on_task_create triggers for tasks newly created above the
-// persisted watermark (task id → no double-fire across restarts).
+// persisted watermark (task id -> no double-fire across restarts).
 func (sc *Scheduler) fireTaskCreates(triggers []*db.AgentTrigger) {
 	var want []*db.AgentTrigger
 	for _, tr := range triggers {
@@ -261,7 +261,7 @@ func (sc *Scheduler) fireTaskCreates(triggers []*db.AgentTrigger) {
 	if err != nil || len(events) == 0 {
 		return
 	}
-	// Advance the watermark even with no active trigger — see fireFindings.
+	// Advance the watermark even with no active trigger -- see fireFindings.
 	maxID := last
 	for _, e := range events {
 		if e.NodeID > maxID {
@@ -270,9 +270,9 @@ func (sc *Scheduler) fireTaskCreates(triggers []*db.AgentTrigger) {
 		if len(want) == 0 {
 			continue
 		}
-		msgCtx := "\n\n【本次由任务创建触发】"
+		msgCtx := "\n\n[This run was triggered by task creation]"
 		for _, tr := range want {
-			sc.s.StartTriggeredRun(tr.AgentKey, fmt.Sprintf("任务创建触发 · task#%d", e.TaskID), tr.TaskCreateMessage+msgCtx, e.TaskID, true, e.TaskDesc, e.TaskGoal)
+			sc.s.StartTriggeredRun(tr.AgentKey, fmt.Sprintf("Task-creation trigger · task#%d", e.TaskID), tr.TaskCreateMessage+msgCtx, e.TaskID, true, e.TaskDesc, e.TaskGoal)
 		}
 	}
 	_ = sc.pg.SetSchedState(schedKeyLastTaskCreate, strconv.FormatInt(maxID, 10))
@@ -293,7 +293,7 @@ func (sc *Scheduler) fireToolCalls(triggers []*db.AgentTrigger) {
 	if err != nil || len(events) == 0 {
 		return
 	}
-	// Advance the watermark even with no active trigger — see fireFindings.
+	// Advance the watermark even with no active trigger -- see fireFindings.
 	maxID := last
 	for _, e := range events {
 		if e.NodeID > maxID {
@@ -311,13 +311,13 @@ func (sc *Scheduler) fireToolCalls(triggers []*db.AgentTrigger) {
 		if e.ToolIsErr {
 			errTag = "[error] "
 		}
-		msgCtx := fmt.Sprintf("\n\n【本次由工具调用触发】\n工具: %s\n入参: %s\n返回: %s%s",
+		msgCtx := fmt.Sprintf("\n\n【triggered by tool call】\nTool: %s\nInput params: %s\nReturn: %s%s",
 			e.Tool, trunc(e.ToolInput, 1500), errTag, trunc(e.ToolOutput, 1500))
 		for _, tr := range want {
 			if !containsFold(tr.ToolNames, e.Tool) {
 				continue
 			}
-			sc.s.StartTriggeredRun(tr.AgentKey, fmt.Sprintf("工具触发 · %s · task#%d", e.Tool, e.TaskID), tr.ToolCallMessage+msgCtx, e.TaskID, true, e.TaskDesc, e.TaskGoal)
+			sc.s.StartTriggeredRun(tr.AgentKey, fmt.Sprintf("Tool triggered · %s · task#%d", e.Tool, e.TaskID), tr.ToolCallMessage+msgCtx, e.TaskID, true, e.TaskDesc, e.TaskGoal)
 		}
 	}
 	_ = sc.pg.SetSchedState(schedKeyLastToolCall, strconv.FormatInt(maxID, 10))
@@ -339,7 +339,7 @@ func trunc(s string, max int) string {
 	if len(r) <= max {
 		return s
 	}
-	return string(r[:max]) + fmt.Sprintf("…(已截断,共 %d 字)", len(r))
+	return string(r[:max]) + fmt.Sprintf("...(truncated, %d chars total)", len(r))
 }
 
 func (sc *Scheduler) mustState(key string) string {

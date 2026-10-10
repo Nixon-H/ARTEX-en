@@ -41,7 +41,7 @@ func TestUpsertRootDomain(t *testing.T) {
 		t.Fatal("expected non-zero id")
 	}
 
-	// upsert again — same id (dedup), ICP preserved
+	// upsert again -- same id (dedup), ICP preserved
 	id2, err := av2.UpsertRootDomain(UpsertRootDomainReq{Domain: "roottest.io", TaskID: 2})
 	if err != nil {
 		t.Fatal(err)
@@ -316,7 +316,7 @@ func TestUpsertHTTPService(t *testing.T) {
 		t.Errorf("technologies: want 2, got %d", techCnt)
 	}
 
-	// upsert again with additional tech → should merge (append)
+	// upsert again with additional tech -> should merge (append)
 	id2, err := av2.UpsertHTTPService(UpsertHTTPServiceReq{
 		URL:          "https://www.httptest.example.com/",
 		Technologies: []string{"react", "webpack"},
@@ -539,20 +539,20 @@ func TestQueryByType(t *testing.T) {
 	}
 }
 
-// TestDeleteByTaskID: 独有资产被删,与其他任务共享的资产仅解除关联(保留),host 反查正确。
+// TestDeleteByTaskID: exclusively-owned assets are deleted, assets shared with other tasks are only unlinked (kept), and host reverse lookup is correct.
 func TestDeleteByTaskID(t *testing.T) {
 	d, av2, _ := testSetup(t)
 	defer d.Close()
 
 	const taskA = int64(90001)
 	const taskB = int64(90002)
-	// solo:仅属 taskA
+	// solo: belongs only to taskA
 	solo, err := av2.UpsertRootDomain(UpsertRootDomainReq{Domain: "solo-del.test", TaskID: taskA})
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer deleteAsset(d, solo)
-	// shared:先 taskA 再 taskB → task_ids={A,B}
+	// shared: taskA first, then taskB -> task_ids={A,B}
 	shared, err := av2.UpsertRootDomain(UpsertRootDomainReq{Domain: "shared-del.test", TaskID: taskA})
 	if err != nil {
 		t.Fatal(err)
@@ -562,13 +562,13 @@ func TestDeleteByTaskID(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// host 反查(删资产前):应含两个域名
+	// Reverse-lookup host (before asset deletion): should contain two domains
 	hosts, err := av2.HostsByTask(taskA)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !slices.Contains(hosts, "solo-del.test") || !slices.Contains(hosts, "shared-del.test") {
-		t.Fatalf("HostsByTask 缺 host: %v", hosts)
+		t.Fatalf("HostsByTask missing host: %v", hosts)
 	}
 
 	n, err := av2.DeleteByTaskID(taskA)
@@ -576,19 +576,19 @@ func TestDeleteByTaskID(t *testing.T) {
 		t.Fatal(err)
 	}
 	if n != 1 {
-		t.Fatalf("DeleteByTaskID: 应删 1 个独有资产,实删 %d", n)
+		t.Fatalf("DeleteByTaskID: should delete 1 exclusively-owned asset, actually deleted %d", n)
 	}
-	// solo 已删
+	// solo already deleted
 	if a, _ := av2.GetByIDs([]int64{solo}); len(a) != 0 {
-		t.Fatalf("solo 资产应被删除")
+		t.Fatalf("\"solo asset should be deleted\"")
 	}
-	// shared 保留,且 task_ids 只剩 taskB
+	// shared is kept, with task_ids reduced to taskB only
 	sa, _ := av2.GetByIDs([]int64{shared})
 	if len(sa) != 1 {
-		t.Fatalf("shared 资产应保留")
+		t.Fatalf("shared assets should be retained")
 	}
 	if slices.Contains(sa[0].TaskIDs, taskA) || !slices.Contains(sa[0].TaskIDs, taskB) {
-		t.Fatalf("shared task_ids 应解除 A 保留 B,得 %v", sa[0].TaskIDs)
+		t.Fatalf("shared task_ids should unlink A and keep B; got %v", sa[0].TaskIDs)
 	}
 }
 
@@ -640,7 +640,7 @@ func TestQueryByTask(t *testing.T) {
 	}
 }
 
-// 任务资产列表按页取,不再被固定条数截断:60 条资产用 25/页要能完整翻出来。
+// Task asset lists are paged, no longer cut off at a fixed count: 60 assets at 25/page must page through completely.
 func TestQueryByTaskPaging(t *testing.T) {
 	d, av2, _ := testSetup(t)
 	defer d.Close()
@@ -739,7 +739,7 @@ func TestQueryByCompany(t *testing.T) {
 	}
 }
 
-// 企业资产列表同样按页取,不被固定条数截断。
+// The enterprise asset list is also fetched page by page, not truncated at a fixed count.
 func TestQueryByCompanyPaging(t *testing.T) {
 	d, av2, cs := testSetup(t)
 	defer d.Close()
@@ -754,7 +754,7 @@ func TestQueryByCompanyPaging(t *testing.T) {
 		t.Fatalf("AddScope: added=%d, errors=%v", added, errs)
 	}
 
-	// UpsertSubdomain 会顺带建根域名资产,一并清掉
+	// UpsertSubdomain also creates the root-domain asset along the way; clean it up together
 	defer d.Exec(`DELETE FROM assets WHERE root_domain = 'qbc-paging.io'`)
 
 	const n = 60
@@ -828,7 +828,7 @@ func TestCompanyAttributionAtInsertTime(t *testing.T) {
 
 	cs.AddScope(companyID, []string{"insertattr.com"}, "test")
 
-	// Now insert a root domain — should be auto-attributed
+	// Now insert a root domain -- should be auto-attributed
 	assetID, err := av2.UpsertRootDomain(UpsertRootDomainReq{Domain: "insertattr.com"})
 	if err != nil {
 		t.Fatal(err)
@@ -1002,8 +1002,8 @@ func TestAssetIPRejectsHostname(t *testing.T) {
 
 // TestQueryDSLInScopeMembership pins the agent-facing list_assets behavior: it
 // returns assets that BELONG to the task's declared scope (membership, not literal
-// value) — a root_domain scope surfaces its subdomains/services/endpoints even when
-// those rows were produced by a different task — and honors ip/cidr scope for
+// value) -- a root_domain scope surfaces its subdomains/services/endpoints even when
+// those rows were produced by a different task -- and honors ip/cidr scope for
 // IP-literal hosts (the try_inet(domain) arm). Out-of-scope assets, including by id,
 // are excluded. Direct source tasks' scope is included.
 func TestQueryDSLInScopeMembership(t *testing.T) {
@@ -1106,7 +1106,7 @@ func TestQueryDSLInScopeMembership(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(byID) != 1 || byID[0].ID != inScopeIDs[0] {
-		t.Fatalf("GetByIDsInScope mixed ids → %+v, want only %d", byID, inScopeIDs[0])
+		t.Fatalf("GetByIDsInScope mixed ids -> %+v, want only %d", byID, inScopeIDs[0])
 	}
 
 	// taskID<=0 (non-task context) falls back to global: the out-of-scope row is reachable.

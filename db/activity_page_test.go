@@ -8,11 +8,11 @@ import "testing"
 func TestActivityPageSessions(t *testing.T) {
 	d, err := Open(testDSN(t))
 	if err != nil {
-		t.Skipf("postgres unavailable (%v) — skipping", err)
+		t.Skipf("postgres unavailable (%v) -- skipping", err)
 	}
 	defer d.Close()
 
-	expID, err := d.CreateExploration("test", "分页历史")
+	expID, err := d.CreateExploration("test", "Paginated history")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -44,7 +44,7 @@ func TestActivityPageSessions(t *testing.T) {
 		appendN(1, Activity{Worker: "planner", Kind: "text", Summary: "p"})
 		appendN(1, Activity{NodeID: &intentA, Worker: "work#1", Kind: "text", Summary: "a"})
 	}
-	appendN(5, Activity{NodeID: &intentA, Worker: "work#1", Kind: "text", Summary: "a2"}) // workerA → 30 total
+	appendN(5, Activity{NodeID: &intentA, Worker: "work#1", Kind: "text", Summary: "a2"}) // workerA -> 30 total
 	appendN(5, Activity{NodeID: &intentB, Worker: "work#2", Kind: "text", Summary: "b"})
 
 	// snapshot cursor = max id across the whole task.
@@ -129,11 +129,11 @@ func TestActivityPageSessions(t *testing.T) {
 func TestListByKindPage(t *testing.T) {
 	d, err := Open(testDSN(t))
 	if err != nil {
-		t.Skipf("postgres unavailable (%v) — skipping", err)
+		t.Skipf("postgres unavailable (%v) -- skipping", err)
 	}
 	defer d.Close()
 
-	expID, err := d.CreateExploration("test", "意图分页")
+	expID, err := d.CreateExploration("test", "Intent pagination")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -165,7 +165,7 @@ func TestListByKindPage(t *testing.T) {
 		if len(items) == 0 || !hasMore {
 			break
 		}
-		// newest-first within a page → the oldest (smallest id) is last; page older
+		// newest-first within a page -> the oldest (smallest id) is last; page older
 		// history before it next.
 		before = items[len(items)-1].ID
 	}

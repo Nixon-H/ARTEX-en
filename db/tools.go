@@ -17,8 +17,8 @@ type Tool struct {
 	Agents      []string        `json:"agents"`
 	Enabled     bool            `json:"enabled"`
 	Kind        string          `json:"kind"`     // builtin | command | script | http
-	Exec        json.RawMessage `json:"exec"`     // 自定义工具执行规格(kind!=builtin)
-	Deferred    bool            `json:"deferred"` // schema 延迟(走 SearchExtraTools/ExecuteExtraTool)
+	Exec        json.RawMessage `json:"exec"`     // Custom tool execution spec (kind!=builtin)
+	Deferred    bool            `json:"deferred"` // schema lazily (... via SearchExtraTools/ExecuteExtraTool)
 	Calls       int             `json:"calls"`    // runtime ledger aggregate; not stored in tools
 }
 
@@ -26,7 +26,7 @@ const toolCols = `key, system, description, schema, agents, enabled, kind, exec,
 
 // SeedTool inserts a built-in tool's code-defined defaults ONCE. ON CONFLICT DO
 // NOTHING: an existing row (possibly edited in the UI) is never overwritten on
-// startup — that's what keeps page edits from being wiped every restart. Use
+// startup -- that's what keeps page edits from being wiped every restart. Use
 // UpsertToolForce for an explicit "reset to code default".
 func (d *DB) SeedTool(key, desc string, schema, agents json.RawMessage) error {
 	if len(schema) == 0 {
@@ -55,14 +55,14 @@ func (d *DB) AddAgentToToolBinding(agentKey string, keys []string) error {
 }
 
 // RemoveAgentFromToolBindings strips an agent key from every tool's `agents`
-// JSONB array — called when a custom agent is deleted so no tool keeps a dangling
+// JSONB array -- called when a custom agent is deleted so no tool keeps a dangling
 // binding. Uses jsonb `-` (remove array element) guarded by `?` (membership).
 func (d *DB) RemoveAgentFromToolBindings(agentKey string) error {
 	_, err := d.Exec(`UPDATE tools SET agents = agents - $1 WHERE agents ? $1`, agentKey)
 	return err
 }
 
-// RemoveAgentFromTool strips one agent key from a SINGLE tool's `agents` array —
+// RemoveAgentFromTool strips one agent key from a SINGLE tool's `agents` array --
 // used by one-time migrations that change a tool's default binding on existing DBs
 // (SeedTool is first-insert-only, so a changed default never reaches a seeded row).
 func (d *DB) RemoveAgentFromTool(agentKey, toolKey string) error {
@@ -216,7 +216,7 @@ func (d *DB) ListCustomTools() ([]*Tool, error) {
 }
 
 // UpdateTool saves the page-editable fields. key is never changed (it is welded to
-// the Go handler). system tools: the caller must keep the schema structure — only
+// the Go handler). system tools: the caller must keep the schema structure -- only
 // per-param description/default and the agent binding are meant to move.
 func (d *DB) UpdateTool(key, desc string, schema, agents json.RawMessage, enabled bool) error {
 	if len(schema) == 0 {

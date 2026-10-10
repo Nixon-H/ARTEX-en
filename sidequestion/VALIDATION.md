@@ -1,38 +1,38 @@
-# `/btw` 验证记录
+# `/btw` Verification Records
 
-日期：2026-09-10。分支：`codex/btw-side-question`。基线：`8dae851b9b622f2ff2631f332fde9719d0b16fba`。
+Date: 2026-09-10. Branch: `codex/btw-side-question`. Baseline: `8dae851b9b622f2ff2631f332fde9719d0b16fba`.
 
-使用独立 PostgreSQL 测试库和数据目录；真实模型凭据只注入独立测试环境，没有写入代码或此记录，也没有修改产品默认模型。Go 1.26.3、norma v0.3.6、Next.js 16.2.9。
+use an isolated PostgreSQL Test database and data directory; real model credentials are only injected into an isolated test environment, Not written into code or this record, also No modificationsproduct default model.Go 1.26.3, norma v0.3.6, Next.js 16.2.9.
 
-实际模型对话、返回对象、工程断言及 Qwen 原始审查文本保存在 [validation-2026-09-10.json](validation-2026-09-10.json)，其中没有 API 凭据。
+The actual model conversations, returned objects, engineering assertions, and Qwen's original review text are saved in [validation-2026-09-10.json](validation-2026-09-10.json), which contains no API credentials.
 
-## 工程检查
+## Engineering Checks
 
-| 范围 | 结果 | 证据 |
+| scope | result | Evidence |
 | --- | --- | --- |
-| 结构化消息、工具参数深拷贝 | 通过 | `TestCheckpointDeepCopyAndBoundaries` |
-| 摘要 / 压缩请求不覆盖、完整回复和终态发布、半段回复排除 | 通过 | `TestCheckpointDeepCopyAndBoundaries`、`TestSnapshotExcludesPartialStreamAndSelectsPoolMember` |
-| 实际模型池成员身份 | 通过 | `TestSnapshotExcludesPartialStreamAndSelectsPoolMember` |
-| 工具配对、20 组回放、预算裁剪与超限错误 | 通过 | `TestBuildRequestCompactionToolPairingAndBudget` |
-| 主旁路并行、双向取消隔离 | 通过 | 阻塞式 Provider，`TestMainSideConcurrencyAndIndependentCancellation` |
-| 无工具执行、流式 / 非流式、失败时已有用量 | 通过 | `TestServiceNoToolsAndUsageOnFailure` |
-| 真实 norma ChatAgent + 本地 Read 工具、主 transcript / 活动隔离 | 通过 | `TestSideActualChatCheckpointToolResultAndTranscriptIsolation`，流式和非流式子用例 |
-| 持久化、分页、幂等、重启保留部分回答 | 通过 | `TestSideHistoryIdempotencyPagingAndRecovery` |
-| 清空与迟到写入竞争、父资源删除、版本比较 | 通过 | `TestSideClearLateWritersAndDeletedParent` |
-| MainAgent / Worker 归档与恢复，v1/v2/v3 | 通过 | `TestSideTaskArchiveVersions` |
-| 三种父接口、认证、资源归属、Worker 逻辑删除 | 通过 | `TestSideHTTPGlobalLimitTaskWorkerAndDeletion`、`TestSideCheckpointPersistsBeforeAdmissionAndRestart` |
-| 忙碌主会话可旁路、独立 SSE 重连 / 断开、取消、清空 | 通过 | `TestSideHTTPBusyIsolationClearAndReconnect` |
-| 每父会话 1 / 全局 4 并发 | 通过 | 两个 `TestSideHTTP…` 用例 |
-| 提交前快照落库、重启续问、旧会话不可伪造快照 | 通过 | `TestSideCheckpointPersistsBeforeAdmissionAndRestart` |
-| 缓存中的配置被删除或模型改变后拒绝继续 | 通过 | `TestSideRejectsDeletedOrChangedCachedProfile` |
-| 归档前取消并等待最终回答和用量落库 | 通过 | `TestSideTaskDrainPersistsBeforeArchive` |
-| 流式消费者提前取消时只记一次用量及旁路归属 | 通过 | `TestSideUsageRecordedOnceOnConsumerCancellation` |
-| 重启自动恢复的 Worker / deadline 运行上下文继续发布新快照 | 通过 | `TestSideRestoredWorkerRuntimePublishesNewCheckpoint` |
-| 相关包 race 检查 | 通过 | 下列命令 |
-| TypeScript 与生产构建 | 通过 | `npx tsc --noEmit`、`npm run build` |
-| 新增前端模块 Biome | 通过 | `biome check`，3 个新增模块 |
+| structured messages, deep copy of tool parameters | pass | `TestCheckpointDeepCopyAndBoundaries` |
+| summary / Compression requests do not overwrite ..., full replies and final-state publishing, Partial replies excluded | pass | `TestCheckpointDeepCopyAndBoundaries`, `TestSnapshotExcludesPartialStreamAndSelectsPoolMember` |
+| actual model-pool member identity | pass | `TestSnapshotExcludesPartialStreamAndSelectsPoolMember` |
+| tool pairing, 20 group replay, budget trimming and overflow errors | pass | `TestBuildRequestCompactionToolPairingAndBudget` |
+| Main and side channels run in parallel, isolated bidirectional cancellation | pass | blocking Provider, `TestMainSideConcurrencyAndIndependentCancellation` |
+| no tool execution, streaming / non-streaming, usage already incurred at failure time | pass | `TestServiceNoToolsAndUsageOnFailure` |
+| real norma ChatAgent + local Read tool, main transcript / Activity isolation | pass | `TestSideActualChatCheckpointToolResultAndTranscriptIsolation`, Streaming and non-streaming subcases |
+| persistence, pagination, idempotent, restarts preserve partial answers | pass | `TestSideHistoryIdempotencyPagingAndRecovery` |
+| clear vs late-write race, parent resource deletion, version comparison | pass | `TestSideClearLateWritersAndDeletedParent` |
+| MainAgent / Worker archive and restore, v1/v2/v3 | pass | `TestSideTaskArchiveVersions` |
+| Three parent interfaces, auth, resource ownership, Worker soft delete | pass | `TestSideHTTPGlobalLimitTaskWorkerAndDeletion`, `TestSideCheckpointPersistsBeforeAdmissionAndRestart` |
+| busy main sessions support side-channel (operation), independent SSE reconnect / disconnect, Cancel, Clear | pass | `TestSideHTTPBusyIsolationClearAndReconnect` |
+| Per parent session 1 / global 4 concurrency | pass | two `TestSideHTTP...` test case |
+| snapshots persisted before admission, resume questions after restart, Old sessions cannot forge snapshots | pass | `TestSideCheckpointPersistsBeforeAdmissionAndRestart` |
+| refuse to continue when cached profile deleted or model changed | pass | `TestSideRejectsDeletedOrChangedCachedProfile` |
+| cancel before archiving and wait for the final answer and usage to persist | pass | `TestSideTaskDrainPersistsBeforeArchive` |
+| streaming consumers that cancel early record usage once with side-channel attribution | pass | `TestSideUsageRecordedOnceOnConsumerCancellation` |
+| auto-restored on restart Worker / deadline runtime keeps publishing new snapshots | pass | `TestSideRestoredWorkerRuntimePublishesNewCheckpoint` |
+| related packages race check | pass | The following commands |
+| TypeScript And the production build | pass | `npx tsc --noEmit`, `npm run build` |
+| new frontend module Biome | pass | `biome check`, 3 new modules added |
 
-在单独的可丢弃数据库中配置 `ARTEX_PG_DSN` 后，可以复现自动化检查（不要指向生产库）：
+After configuring `ARTEX_PG_DSN` in a separate disposable database, the automated checks can be reproduced (do not point at the production database):
 
 ```sh
 go test -race ./agent ./db ./server ./sidequestion ./llmrec ./llmpool \
@@ -43,51 +43,51 @@ npx biome check src/lib/side-questions.ts src/hooks/use-side-questions.ts src/co
 npm run build
 ```
 
-全量 Go 回归不是全绿：`server` 包有两个既有测试在临时目录清理阶段失败，均报 `TempDir RemoveAll … directory not empty`：
+The full Go regression is not all green: the `server` package has two pre-existing tests failing at the temp-directory cleanup stage, both reporting `TempDir RemoveAll ... directory not empty`:
 
 - `TestInheritedActivityDetailAndRelationDeletion`
 - `TestTaskMetadataPatchReturnsRenameAndPin`
 
-从上述未修改基线导出源码后，在相同隔离环境重跑 `server` 包，也复现这两个清理失败。基线运行另出现 `TestCoreTaskLifecyclePG` 的目标节点数量断言失败；最终修改后的 `server` 回归没有该断言失败。其他包通过，本次旁路相关用例及 race 检查通过。没有将基线问题标为本次验收通过，也没有为隐藏问题修改既有断言。
+Exporting the source from the above unmodified baseline and re-running the `server` package in the same isolated environment reproduces these two cleanup failures. The baseline run additionally shows a target node count assertion failure in `TestCoreTaskLifecyclePG`; the final modified `server` regression does not have that assertion failure. Other packages pass, and this round's side-path cases and race checks pass. Baseline issues were not marked as accepted for this round, nor were pre-existing assertions modified to hide issues.
 
-Next.js 构建输出已有的多 lockfile / workspace root 推断警告；构建完成且所有页面生成成功。
+Next.js Pre-existing build output with multiple warnings lockfile / workspace root inferred warnings; build completed and all pages generated.
 
-## 浏览器检查
+## Browser Checks
 
-使用 Codex In-app Browser，连接独立本地 Go 服务和 Next.js 开发服务器。桌面与 390 × 844 窄屏完成以下人工自动化操作，检查截图和浏览器日志：
+Using the Codex In-app Browser, connected to a standalone local Go service and a Next.js dev server. On desktop and a 390 × 844 narrow screen, the following manual automated operations were completed, checking screenshots and browser logs:
 
-- 普通聊天运行期间输入 `/btw`，主内容和旁路同时显示；桌面侧栏正常。
-- 连续追问；旁路停止后保留已生成部分；主流程继续。
-- 关闭面板时请求继续，重开后恢复完成的回答；刷新页面后空 `/btw` 恢复历史。
-- 窄屏 Drawer 的输入、按钮、历史和关闭操作正常，无横向溢出。
-- 清空使用确认弹窗，清空后历史消失，主 transcript 和快照保留。
-- 任务 MainAgent 与两个 Worker 分别提问并切换，Agent 标签和历史未串话。
-- 阻塞式本地模型夹具保持 Worker 运行；从 Worker 主输入框提交 `/btw`，停止旁路后 Worker 仍显示实时运行和自己的暂停按钮，旁路保存部分回答。
-- 浏览器错误 / 警告日志为空。
+Typing `/btw` while a normal chat is running shows the main content and the side path at the same time; the desktop sidebar is normal.
+Follow-up questions in succession; after the side path stops, the already generated portion is kept; the main flow continues.
+Requests continue when the panel is closed, and the completed answer is restored after reopening; after a page refresh, an empty `/btw` restores history.
+- narrow screen Drawer inputs, button, history and close actions work, no horizontal overflow.
+- clearing requires a confirmation dialog, history disappears after clearing, main transcript main transcript and snapshots are kept.
+- Tasks MainAgent With two Worker Ask separately and switch between them, Agent Tags and history stayed isolated.
+The blocking local-model fixture keeps the Worker running; submitting `/btw` from the Worker's main input box and then stopping the side path, the Worker still shows live running status and its own pause button, and the side path saves the partial answer.
+Browser error/warning logs are empty.
 
-可控夹具用于精确验证并发时序，不依赖真实模型的输出速度。调试期间两次 Worker 运行时检查未形成有效并发窗口（任务已结束 / 回答提前结束），修正夹具后重做并通过；不将这些初始操作记作有效通过。
+Controlled fixtures for precisely verifying concurrency timing, Does not depend on the real model's output speed.twice during debugging Worker runtime check formed no valid concurrency window (task has ended / answer ended early), fixed fixtures, redid, and passed; don't count these initial operations as valid passes.
 
-## 真实模型对话
+## Real Model Conversations
 
-优先探测 `grok-4.6`，OpenAI 兼容接口 `http://127.0.0.1:12580/tingly/openai`。探测 HTTP 200，返回模型名 `grok-4.6` 和 `READY`，耗时 2.82 秒。首选可用，因此没有启用 Tingly `glm` 或智谱 `glm-5.3` 备用链；这两个备用服务本次没有验证。
+Probed `grok-4.6` first, OpenAI-compatible endpoint `http://127.0.0.1:12580/tingly/openai`. The probe returned HTTP 200 with model name `grok-4.6` and `READY`, taking 2.82 seconds. Since the first choice was available, neither the Tingly `glm` nor the Zhipu `glm-5.3` fallback chain was enabled; these two fallback services were not verified this time.
 
-| 场景 | 实际结果 |
+| scenario | actual results |
 | --- | --- |
-| 主会话运行期间询问资产、目标、标记 | 返回 `redhaze.top`、首页读取和总结目标、`BTW-REAL-0910`；旁路完成，16.97 秒 |
-| 主会话完成首页读取后询问工具依据 | 正确引用 WebFetch 200、curl 跳转 301 → 302 → 200、页面标题；7.24 秒 |
-| 旁路要求 Bash 创建测试文件 | 拒绝执行，目标文件未创建；7.74 秒 |
-| 完成后的旁路不改变主上下文 | 主 transcript SHA-256 与主活动记录保持一致；旁路工具执行次数为 0 |
-| 真正停止 / 重启 Go 服务后续问 | 保留先前 3 条旁路历史，直接从持久化快照回答资产、标记和标题，未重跑主 Agent |
-| 新会话使用 Grok 非流式配置 | 正确回答资产和 `ATOMIC-0910`；返回并保存用量：input 11734、output 138、cache_read 11520 |
+| Query assets while the main session is running, Target, mark | return `redhaze.top`, read the homepage and summarize the target, `BTW-REAL-0910`; side channel completed, 16.97 seconds |
+| main session asks for the tool evidence after loading the homepage | Correctly cited WebFetch 200, curl redirect 301 -> 302 -> 200, page title; 7.24 seconds |
+| Side-question requirement Bash requirement to create test files via Bash | refused to execute, target file not created; 7.74 seconds |
+| completed side channels don't alter the main context | main transcript SHA-256 Consistent with the primary activity record; Side tool execution count is 0 |
+| actually stopped / restart Go Follow-up questions after a service restart | Keep the previous ... 3 side-channel history entries, answer assets directly from persisted snapshot, marks and titles, without re-running the main agent Agent |
+| new sessions use Grok non-streaming config | Correctly answered the assets and `ATOMIC-0910`; return and save usage: input 11734, output 138, cache_read 11520 |
 
-资产案例的主会话使用 WebFetch 和 Bash/curl 读取公开首页，落地页为 `https://id.redhaze.top/home`，标题为“红幕科技 RedHaze Group · 全球综合集团门户”。Bash 把响应暂存于本地测试文件；未向远端执行写入。该事实与“旁路没有执行工具”分开核验。
+In the asset case, the main session used WebFetch and Bash/curl to read the public homepage, landing on `https://id.redhaze.top/home` with the title "Red Curtain Technology RedHaze Group · Global Integrated Group Portal". Bash staged the response in a local test file; no writes were executed to the remote end. This fact was verified separately from "the side path executed no tools".
 
-主 transcript 校验值：`e7e61f135a4a120954b539f357e8c4205d7d5cd7460dcaf3dc0fd066463e1d00`。
+Main transcript checksum: `e7e61f135a4a120954b539f357e8c4205d7d5cd7460dcaf3dc0fd066463e1d00`.
 
-**用量限制：** Tingly 的 Grok 流式响应没有返回 usage。另行直接发送 `stream_options.include_usage=true` 验证，HTTP 200、12 个数据帧、0 个 usage 帧。因此流式测试中的 0 表示端点没有提供用量，不能解释为没有计费。非流式用量以及夹具的失败 / 取消用量都正确保存。
+**Usage limitation:** Tingly's Grok streaming response returned no usage. A separate direct send of `stream_options.include_usage=true` verified HTTP 200, 12 data frames, and 0 usage frames. So the 0 in the streaming tests means the endpoint provided no usage and must not be read as unbilled. Non-streaming usage and the fixture's failure/cancellation usage were all saved correctly.
 
-## Qwen 审查
+## Qwen Review
 
-审查模型 `qwen-flash`，OpenAI 兼容接口 `https://dashscope.aliyuncs.com/compatible-mode/v1`，HTTP 200。提供了前三项真实旁路对话、主会话工具依据及工程断言；返回 `verdict: accept`、`concerns: []`，认为回答与资产、标记、页面读取证据一致，旁路工具拒绝符合约束。审查用量：prompt 6625、completion 312、total 6937。
+Review model `qwen-flash`, OpenAI-compatible endpoint `https://dashscope.aliyuncs.com/compatible-mode/v1`, HTTP 200. Provided with the first three real side-path conversations, the main-session tool basis, and the engineering assertions; returned `verdict: accept`, `concerns: []`, judging the answers consistent with the asset, marker, and page-read evidence and the side-path tool refusal compliant with the constraints. Review usage: prompt 6625, completion 312, total 6937.
 
-这次 Qwen 审查范围不包含后来追加的服务重启和非流式测试。Qwen 对“无写入”的概括过宽：主会话 curl 确实创建了本地响应临时文件，上文已明确记录。并发、零工具执行和 transcript 隔离由工程断言判断，模型审查只辅助评估答案质量。
+This Qwen review did not cover the later-added service-restart and non-streaming tests. Qwen's "no writes" generalization was too broad: the main-session curl did create a local response temp file, as explicitly recorded above. Concurrency, zero tool execution, and transcript isolation are judged by the engineering assertions; the model review only assists in evaluating answer quality.

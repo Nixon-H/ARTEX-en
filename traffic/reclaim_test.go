@@ -9,7 +9,7 @@ import (
 	"testing"
 )
 
-// bulkRecord fills the index with inline bodies — the ones that actually make
+// bulkRecord fills the index with inline bodies -- the ones that actually make
 // index.sqlite grow. Binary content type keeps them out of the full-text index so
 // the test stays fast; the FTS side is covered by TestReclaimMergesFTSTombstones.
 func bulkRecord(tr *Traffic, host string, n, size int) {
@@ -23,14 +23,14 @@ func bulkRecord(tr *Traffic, host string, n, size int) {
 func TestNewIndexEnablesIncrementalVacuum(t *testing.T) {
 	tr, _ := openTraffic(t)
 	if !tr.incrementalVacuum {
-		t.Fatal("新建索引库未启用增量回收")
+		t.Fatal("Newly created index database has incremental reclamation disabled")
 	}
 	var mode int
 	if err := tr.DB().QueryRow(`PRAGMA auto_vacuum`).Scan(&mode); err != nil {
 		t.Fatal(err)
 	}
 	if mode != autoVacuumIncremental {
-		t.Fatalf("auto_vacuum=%d，应为 %d", mode, autoVacuumIncremental)
+		t.Fatalf("auto_vacuum=%d, expected %d", mode, autoVacuumIncremental)
 	}
 }
 
@@ -41,21 +41,21 @@ func TestDeleteReclaimsIndexSpace(t *testing.T) {
 	tr, _ := openTraffic(t)
 	const host = "bulk.example.com"
 	// 30 × 200KB stays under maxInlineBody, so every body lands in the database
-	// itself rather than the blob store — that is where the growth was invisible.
+	// itself rather than the blob store -- that is where the growth was invisible.
 	bulkRecord(tr, host, 30, 200*1024)
 	grown := tr.indexBytes()
 	if grown < 5<<20 {
-		t.Fatalf("索引只有 %d 字节，样本不足以验证回收", grown)
+		t.Fatalf("index is only %d bytes, sample insufficient to verify reclaim", grown)
 	}
 
 	if n, err := tr.DeleteHostsExact([]string{host}); err != nil || n != 30 {
-		t.Fatalf("DeleteHostsExact=(%d,%v)，应为 (30,nil)", n, err)
+		t.Fatalf("DeleteHostsExact=(%d,%v), expected (30,nil)", n, err)
 	}
-	tr.reaping.Wait() // 回收在后台分块进行
+	tr.reaping.Wait() // reclaim proceeds in chunks in the background
 
 	after := tr.indexBytes()
 	if after > grown/4 {
-		t.Fatalf("删除后索引仍占 %d 字节（删除前 %d），空间没有还给文件系统", after, grown)
+		t.Fatalf("index still occupies %d bytes after deletion (before deletion %d); space was not returned to the filesystem", after, grown)
 	}
 	// A handful of pages incremental_vacuum could not move to the end of the file
 	// is a normal residual; the ~1500 that the deletion freed must be gone.
@@ -64,17 +64,17 @@ func TestDeleteReclaimsIndexSpace(t *testing.T) {
 		t.Fatal(err)
 	}
 	if free > 64 {
-		t.Fatalf("仍有 %d 个空闲页未回收", free)
+		t.Fatalf("still %d free pages unreclaimed", free)
 	}
 }
 
 // TestReclaimMergesFTSTombstones covers the second half of the leak: ex_fts is a
 // contentless_delete index, so a DELETE only writes tombstones. Without a merge
-// the index keeps growing on every deletion — deleting traffic made it bigger.
+// the index keeps growing on every deletion -- deleting traffic made it bigger.
 func TestReclaimMergesFTSTombstones(t *testing.T) {
 	tr, _ := openTraffic(t)
 	if !tr.fts {
-		t.Skip("驱动未启用 FTS5")
+		t.Skip("driver has FTS5 disabled")
 	}
 	// Deleted in batches, which is what leaves tombstones spread over many
 	// segments rather than emptying the index in one shot.
@@ -98,11 +98,11 @@ func TestReclaimMergesFTSTombstones(t *testing.T) {
 		t.Fatal(err)
 	}
 	if exchanges != 0 {
-		t.Fatalf("还剩 %d 条流量", exchanges)
+		t.Fatalf("%d traffic entries remain", exchanges)
 	}
 	// A fully merged, empty contentless index keeps only its structure rows.
 	if segments > 8 {
-		t.Fatalf("全文索引残留 %d 行段数据，tombstone 未被合并回收", segments)
+		t.Fatalf("full-text index still holds %d rows of segment data; tombstone was not merged and reclaimed", segments)
 	}
 }
 
@@ -115,7 +115,7 @@ func TestReclaimOnLegacyIndexIsHarmless(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(dir, "_index"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	// Create the tables first, with auto_vacuum left at its default 0 — exactly the
+	// Create the tables first, with auto_vacuum left at its default 0 -- exactly the
 	// shape Open used to leave behind.
 	legacy, err := sql.Open("sqlite", filepath.Join(dir, "_index", "index.sqlite"))
 	if err != nil {
@@ -134,15 +134,15 @@ func TestReclaimOnLegacyIndexIsHarmless(t *testing.T) {
 	}
 	t.Cleanup(func() { tr.Close() })
 	if tr.incrementalVacuum {
-		t.Fatal("旧库不应报告已启用增量回收")
+		t.Fatal("old DB should not report incremental reclaim as enabled")
 	}
 
 	const host = "legacy.example.com"
 	bulkRecord(tr, host, 8, 200*1024)
 	if n, err := tr.DeleteHostsExact([]string{host}); err != nil || n != 8 {
-		t.Fatalf("DeleteHostsExact=(%d,%v)，应为 (8,nil)", n, err)
+		t.Fatalf("DeleteHostsExact=(%d,%v), expected (8,nil)", n, err)
 	}
-	tr.reaping.Wait() // 必须收敛，不能卡在预算里
+	tr.reaping.Wait() // must converge, must not get stuck in the budget
 
 	// The freelist stays populated: that is the whole reason a compaction entry
 	// point is needed for pre-existing databases.
@@ -151,13 +151,13 @@ func TestReclaimOnLegacyIndexIsHarmless(t *testing.T) {
 		t.Fatal(err)
 	}
 	if free == 0 {
-		t.Fatal("旧库居然回收了空闲页，说明测试没有真的构造出旧库")
+		t.Fatal("old DB actually reclaimed free pages, meaning the test did not really construct an old DB")
 	}
 }
 
 // TestDeleteAllPurgesAndCompacts covers the page's clear-everything action: it
-// must leave nothing behind — including host directories the index no longer
-// knows about — and it must hand the index space back, since an emptied index is
+// must leave nothing behind -- including host directories the index no longer
+// knows about -- and it must hand the index space back, since an emptied index is
 // the one moment a full rewrite is cheap.
 func TestDeleteAllPurgesAndCompacts(t *testing.T) {
 	tr, dir := openTraffic(t)
@@ -176,7 +176,7 @@ func TestDeleteAllPurgesAndCompacts(t *testing.T) {
 	}
 	grown := tr.indexBytes()
 	if grown < 5<<20 {
-		t.Fatalf("索引只有 %d 字节，样本不足", grown)
+		t.Fatalf("index is only %d bytes, insufficient sample", grown)
 	}
 
 	deleted, reclaimed, err := tr.DeleteAll()
@@ -184,15 +184,15 @@ func TestDeleteAllPurgesAndCompacts(t *testing.T) {
 		t.Fatalf("DeleteAll: %v", err)
 	}
 	if deleted != 22 {
-		t.Fatalf("deleted=%d，应为 22", deleted)
+		t.Fatalf("deleted=%d, expected 22", deleted)
 	}
 	tr.reaping.Wait()
 
 	if reclaimed < grown/2 {
-		t.Fatalf("只回收了 %d 字节（删除前索引 %d）", reclaimed, grown)
+		t.Fatalf("only reclaimed %d bytes (index before deletion %d)", reclaimed, grown)
 	}
 	if after := tr.indexBytes(); after > grown/8 {
-		t.Fatalf("清空后索引仍占 %d 字节（删除前 %d）", after, grown)
+		t.Fatalf("index still occupies %d bytes after clearing (before deletion %d)", after, grown)
 	}
 	for _, q := range []string{
 		`SELECT COUNT(*) FROM exchanges`,
@@ -204,16 +204,16 @@ func TestDeleteAllPurgesAndCompacts(t *testing.T) {
 			t.Fatal(err)
 		}
 		if c != 0 {
-			t.Fatalf("%s = %d，应为 0", q, c)
+			t.Fatalf("%s = %d, expected 0", q, c)
 		}
 	}
 	if _, err := os.Stat(orphan); !os.IsNotExist(err) {
-		t.Fatalf("孤立的历史 host 目录未被清理：%v", err)
+		t.Fatalf("Orphaned historical host directory not cleaned up: %v", err)
 	}
 	// Recording must keep working against the freshly rewritten file.
-	tr.record(newFlow("d.example.com", "GET", "/after", nil, []byte("清空后仍可录制")))
+	tr.record(newFlow("d.example.com", "GET", "/after", nil, []byte("Recording still possible after clearing")))
 	if n, err := tr.Count(); err != nil || n != 1 {
-		t.Fatalf("清空后 Count=(%d,%v)，应为 (1,nil)", n, err)
+		t.Fatalf("after clearing Count=(%d,%v), expected (1,nil)", n, err)
 	}
 }
 
@@ -233,7 +233,7 @@ func TestDeleteAllConvertsLegacyIndex(t *testing.T) {
 	}
 	t.Cleanup(func() { tr.Close() })
 	if tr.incrementalVacuum {
-		t.Fatal("旧库不应报告已启用增量回收")
+		t.Fatal("old DB should not report incremental reclaim as enabled")
 	}
 
 	bulkRecord(tr, "legacy.example.com", 10, 200*1024)
@@ -241,7 +241,7 @@ func TestDeleteAllConvertsLegacyIndex(t *testing.T) {
 		t.Fatalf("DeleteAll: %v", err)
 	}
 	if !tr.incrementalVacuum {
-		t.Fatal("清空后旧库未被转换为增量回收模式")
+		t.Fatal("Old database was not converted to incremental reclamation mode after clearing")
 	}
 
 	// The converted database now reclaims on an ordinary host deletion.
@@ -252,6 +252,6 @@ func TestDeleteAllConvertsLegacyIndex(t *testing.T) {
 	}
 	tr.reaping.Wait()
 	if after := tr.indexBytes(); after > grown/4 {
-		t.Fatalf("转换后普通删除仍未回收：%d 字节（删除前 %d）", after, grown)
+		t.Fatalf("After conversion, plain deletion still not reclaimed: %d bytes (before deletion %d)", after, grown)
 	}
 }

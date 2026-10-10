@@ -40,7 +40,7 @@ type Member struct {
 const RankActive = int(^uint(0)>>1) - 1
 
 // ErrExhausted is returned when every member of the chain failed.
-var ErrExhausted = errors.New("LLM 轮询：所有配置均不可用")
+var ErrExhausted = errors.New("LLM round-robin: all configs unavailable")
 
 // Pool is an llm.Provider that fails over across an ordered chain of members.
 // It is safe for concurrent use: members are immutable after construction and
@@ -52,7 +52,7 @@ type Pool struct {
 }
 
 // New builds a Pool over members (already in chain order). Returns nil when the
-// chain is empty. A single-member chain is still a valid Pool — it just behaves
+// chain is empty. A single-member chain is still a valid Pool -- it just behaves
 // exactly like the bare provider.
 func New(members []*Member, health *Registry) *Pool {
 	if len(members) == 0 {
@@ -75,7 +75,7 @@ func (p *Pool) Head() *Member { return p.members[0] }
 // The one hard rule: a member may only be abandoned BEFORE it has yielded any
 // event. Once text or a tool_use has reached the caller, re-sending the same
 // request to another model would duplicate output and corrupt the conversation
-// history — so a mid-stream failure is surfaced as-is and left to the agent
+// history -- so a mid-stream failure is surfaced as-is and left to the agent
 // harness's resume logic. Fortunately the failures this exists for (402 no
 // credit, 401 bad key, 429, 5xx) all surface during request establishment,
 // before the body is read, so they always land in the safe window.
@@ -106,24 +106,24 @@ func (p *Pool) Stream(ctx context.Context, req llm.CompletionRequest) iter.Seq2[
 			lastErr = failed
 			hard := isHardFailure(failed)
 			if p.health.Trip(m.ID, trimErr(failed), hard) {
-				log.Printf("[llmpool] 配置 %q(%s) 已熔断：%s", m.Name, m.Model, trimErr(failed))
+				log.Printf("[llmpool] Config %q(%s) circuit-broken: %s", m.Name, m.Model, trimErr(failed))
 			}
 			if i+1 < len(order) {
 				n := order[i+1]
-				log.Printf("[llmpool] LLM 故障转移：%q(%s) → %q(%s)，原因：%s",
+				log.Printf("[llmpool] LLM failover: %q(%s) -> %q(%s), reason: %s",
 					m.Name, m.Model, n.Name, n.Model, trimErr(failed))
 			}
 		}
 		if lastErr == nil {
 			lastErr = ErrExhausted
 		}
-		log.Printf("[llmpool] 轮询链已耗尽(%d 个配置全部失败)，最后错误：%s", len(order), trimErr(lastErr))
-		yield(llm.StreamEvent{}, fmt.Errorf("%w：%v", ErrExhausted, lastErr))
+		log.Printf("[llmpool] Round-robin chain exhausted (all %d configs failed), last error: %s", len(order), trimErr(lastErr))
+		yield(llm.StreamEvent{}, fmt.Errorf("%w: %v", ErrExhausted, lastErr))
 	}
 }
 
 // Complete implements llm.Provider with failover for non-streaming calls. A
-// non-streaming request is atomic — it never delivers partial output — so every
+// non-streaming request is atomic -- it never delivers partial output -- so every
 // failover-eligible failure lands in the safe window and the next member can be
 // tried without risk of duplicated output. Mirrors Stream's health-tripping and
 // chain-exhaustion behavior.
@@ -145,25 +145,25 @@ func (p *Pool) Complete(ctx context.Context, req llm.CompletionRequest) (llm.Mes
 		lastErr = err
 		hard := isHardFailure(err)
 		if p.health.Trip(m.ID, trimErr(err), hard) {
-			log.Printf("[llmpool] 配置 %q(%s) 已熔断：%s", m.Name, m.Model, trimErr(err))
+			log.Printf("[llmpool] Config %q(%s) circuit-broken: %s", m.Name, m.Model, trimErr(err))
 		}
 		if i+1 < len(order) {
 			n := order[i+1]
-			log.Printf("[llmpool] LLM 故障转移：%q(%s) → %q(%s)，原因：%s",
+			log.Printf("[llmpool] LLM failover: %q(%s) -> %q(%s), reason: %s",
 				m.Name, m.Model, n.Name, n.Model, trimErr(err))
 		}
 	}
 	if lastErr == nil {
 		lastErr = ErrExhausted
 	}
-	log.Printf("[llmpool] 轮询链已耗尽(%d 个配置全部失败)，最后错误：%s", len(order), trimErr(lastErr))
-	return llm.Message{}, "", llm.Usage{}, fmt.Errorf("%w：%v", ErrExhausted, lastErr)
+	log.Printf("[llmpool] Round-robin chain exhausted (all %d configs failed), last error: %s", len(order), trimErr(lastErr))
+	return llm.Message{}, "", llm.Usage{}, fmt.Errorf("%w: %v", ErrExhausted, lastErr)
 }
 
 // order picks the members to try, in order: skip those in a cooling-off window
 // and those whose context window can't hold this request, then rotate within each
 // equal-priority group so same-priority profiles share the load. Never returns an
-// empty slice — if everything is filtered out, the head of the chain is tried
+// empty slice -- if everything is filtered out, the head of the chain is tried
 // anyway, since stalling the engine is worse than one more failed request.
 func (p *Pool) order(req llm.CompletionRequest) []*Member {
 	est := estimateTokens(req)
@@ -173,7 +173,7 @@ func (p *Pool) order(req llm.CompletionRequest) []*Member {
 			continue
 		}
 		if m.WindowTokens > 0 && est > m.WindowTokens {
-			continue // would 400 on length — not a useful failover target
+			continue // would 400 on length -- not a useful failover target
 		}
 		open = append(open, m)
 	}
@@ -224,7 +224,7 @@ func statusOf(err error) int {
 
 // shouldFailover reports whether err justifies trying the next profile.
 //
-// Never fails over on context cancellation — that's the user stopping a task or a
+// Never fails over on context cancellation -- that's the user stopping a task or a
 // task-level timeout, and burning a backup key on it would both waste credit and
 // pollute the run's termination diagnosis. Never on 400 either: a malformed or
 // over-long request fails identically everywhere.
@@ -237,7 +237,7 @@ func shouldFailover(ctx context.Context, err error) bool {
 	}
 	switch code := statusOf(err); {
 	case code == 0:
-		return true // no status → transport-level failure (reset / DNS / timeout)
+		return true // no status -> transport-level failure (reset / DNS / timeout)
 	case code == 400:
 		return false // bad or over-long request: identical everywhere
 	case code == 401, code == 402, code == 403, code == 404, code == 408, code == 429:
@@ -259,11 +259,11 @@ func isHardFailure(err error) bool {
 	return false
 }
 
-// trimErr shortens an error for logs/UI — provider bodies can be long.
+// trimErr shortens an error for logs/UI -- provider bodies can be long.
 func trimErr(err error) string {
 	s := strings.TrimSpace(strings.ReplaceAll(err.Error(), "\n", " "))
 	if len(s) > 300 {
-		s = s[:300] + "…"
+		s = s[:300] + "..."
 	}
 	return s
 }
@@ -281,7 +281,7 @@ func estimateTokens(req llm.CompletionRequest) int {
 	}
 	for _, t := range req.Tools {
 		// InputSchema is a decoded map, so its serialized size isn't available
-		// cheaply — charge a flat ~120 chars per top-level property instead.
+		// cheaply -- charge a flat ~120 chars per top-level property instead.
 		n += len(t.Name) + len(t.Description) + len(t.InputSchema)*120
 	}
 	return n * 2 / 7 // ≈ len/3.5

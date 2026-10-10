@@ -39,7 +39,7 @@ func TestGraphOverviewExpandsAssociatedCompanyScope(t *testing.T) {
 	domain := fmt.Sprintf("overview-scope-%d.invalid", companyID)
 	ip := fmt.Sprintf("2001:db8:%x::42", companyID%0xffff)
 	cidr := fmt.Sprintf("2001:db8:%x:1::/64", companyID%0xffff)
-	icp := fmt.Sprintf("京 ICP 备 %d 号", companyID)
+	icp := fmt.Sprintf("Beijing ICP Filing No. %d", companyID)
 	keyword := fmt.Sprintf("Scope Company %d", companyID)
 	inputs := []db.ScopeInput{
 		{Kind: "domain", Value: domain},
@@ -398,7 +398,7 @@ func TestGetWorkerTraceStepIDsDegradeGracefully(t *testing.T) {
 	tools.SetAssetStore(d.Assets(), d.Companies())
 
 	// Request 7 ids: a duplicate of the first, an invalid 0, then all 6 real ids.
-	// After dedup/cleanup that is 6 valid ids — one over the cap.
+	// After dedup/cleanup that is 6 valid ids -- one over the cap.
 	requested := []int64{stepIDs[0], stepIDs[0], 0, stepIDs[1], stepIDs[2], stepIDs[3], stepIDs[4], stepIDs[5]}
 	input, _ := json.Marshal(map[string]any{"intent_id": intent, "step_ids": requested})
 	res := callReadJSON(t, tools.getWorkerTrace(), string(input)).(map[string]any)
@@ -419,7 +419,7 @@ func TestGetWorkerTraceStepIDsDegradeGracefully(t *testing.T) {
 		t.Fatalf("omitted_step_ids=%v, want [%d]", res["omitted_step_ids"], stepIDs[5])
 	}
 	if notice, _ := res["notice"].(string); notice == "" {
-		t.Fatalf("notice missing — model would not know a step was deferred")
+		t.Fatalf("notice missing -- model would not know a step was deferred")
 	}
 	if steps, _ := res["steps"].([]any); len(steps) != 5 {
 		t.Fatalf("steps=%d, want 5 detail rows", len(steps))

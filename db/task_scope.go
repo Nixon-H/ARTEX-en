@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-// TaskScope is one row of a task's test scope — the coverage denominator and the
+// TaskScope is one row of a task's test scope -- the coverage denominator and the
 // per-task authorization edge. Rows come either from insertAssets (source='auto',
 // conservative, one per explicitly-inserted asset) or from the add_task_scope tool
 // (source='agent', for company / domain / network / ICP / keyword scope).
@@ -54,7 +54,7 @@ func ipToHostCIDR(ip string) string {
 }
 
 // upsertTaskScope inserts one scope row idempotently (uq_task_scope). A duplicate is
-// silently ignored. taskID<=0 or empty kind → no-op.
+// silently ignored. taskID<=0 or empty kind -> no-op.
 func (s *AssetStore) upsertTaskScopeResult(ts TaskScope) (bool, error) {
 	if ts.TaskID <= 0 || ts.Kind == "" {
 		return false, nil
@@ -102,9 +102,9 @@ func (s *AssetStore) upsertTaskScope(ts TaskScope) error {
 }
 
 // AddAutoScope records the conservative task scope implied by ONE explicitly-inserted
-// asset item (source='auto'). MUST be called only from insertAssets' top-level loop —
-// never from a db-layer side effect (linkHostAssets), so派生资产不会盲目扩大范围。
-// Rule: scope granularity follows the asset's own type. taskID<=0 → no-op.
+// asset item (source='auto'). MUST be called only from insertAssets' top-level loop --
+// never from a db-layer side effect (linkHostAssets), so derived assets never blindly expand the scope.
+// Rule: scope granularity follows the asset's own type. taskID<=0 -> no-op.
 func (s *AssetStore) AddAutoScope(taskID int64, assetType, domain, rawURL, ip string) error {
 	if taskID <= 0 {
 		return nil
@@ -127,7 +127,7 @@ func (s *AssetStore) AddAutoScope(taskID int64, assetType, domain, rawURL, ip st
 		if host != "" && net.ParseIP(host) == nil {
 			return s.upsertTaskScope(TaskScope{TaskID: taskID, Kind: "subdomain", Domain: host})
 		}
-		// IP-literal host or no host → fall back to ip scope if we have one.
+		// IP-literal host or no host -> fall back to ip scope if we have one.
 		if c := ipToHostCIDR(ip); c != "" {
 			return s.upsertTaskScope(TaskScope{TaskID: taskID, Kind: "ip", Net: c})
 		}
@@ -142,23 +142,23 @@ func (s *AssetStore) AddAutoScope(taskID int64, assetType, domain, rawURL, ip st
 // AddAgentScope parses a (kind,value) pair and records it as task scope.
 // source is "agent" when called from an LLM tool, "manual" from the UI.
 // company: value = company name or id (must already exist). root_domain/subdomain:
-// value = a domain. ip/cidr: value = an IP or CIDR (bare IP → /32,/128).
+// value = a domain. ip/cidr: value = an IP or CIDR (bare IP -> /32,/128).
 func (s *AssetStore) AddAgentScope(taskID int64, kind, value, reason, source string) (TaskScope, error) {
 	if source == "" {
 		source = "agent"
 	}
 	ts := TaskScope{TaskID: taskID, Kind: kind, Source: source, Reason: reason}
 	if taskID <= 0 {
-		return ts, fmt.Errorf("需要 task_id")
+		return ts, fmt.Errorf("\"task_id is required\"")
 	}
 	value = strings.TrimSpace(value)
 	if value == "" {
-		return ts, fmt.Errorf("value 不能为空")
+		return ts, fmt.Errorf("\"value cannot be empty\"")
 	}
 	switch kind {
 	case "company":
 		if s.company == nil {
-			return ts, fmt.Errorf("company store 未启用")
+			return ts, fmt.Errorf("company store is not enabled")
 		}
 		var comp *Company
 		var err error
@@ -171,7 +171,7 @@ func (s *AssetStore) AddAgentScope(taskID int64, kind, value, reason, source str
 			return ts, err
 		}
 		if comp == nil {
-			return ts, fmt.Errorf("company 不存在: %s（先用 list_companies 确认，或建好企业）", value)
+			return ts, fmt.Errorf("company does not exist: %s (confirm with list_companies first, or create the company)", value)
 		}
 		ts.CompanyID = &comp.ID
 	case "root_domain":
@@ -181,13 +181,13 @@ func (s *AssetStore) AddAgentScope(taskID int64, kind, value, reason, source str
 			root = d
 		}
 		if root == "" {
-			return ts, fmt.Errorf("无效根域: %s", value)
+			return ts, fmt.Errorf("Invalid root domain: %s", value)
 		}
 		ts.Domain = root
 	case "subdomain":
 		d := DomainKey(stripHostPort(value))
 		if d == "" {
-			return ts, fmt.Errorf("无效子域: %s", value)
+			return ts, fmt.Errorf("Invalid subdomain: %s", value)
 		}
 		ts.Domain = d
 	case "ip", "cidr":
@@ -199,10 +199,10 @@ func (s *AssetStore) AddAgentScope(taskID int64, kind, value, reason, source str
 			ts.Kind = "cidr"
 		}
 		if v == "" {
-			return ts, fmt.Errorf("无效 ip/cidr: %s", value)
+			return ts, fmt.Errorf("Invalid ip/cidr: %s", value)
 		}
 		if _, _, err := net.ParseCIDR(v); err != nil {
-			return ts, fmt.Errorf("无效 ip/cidr: %s", value)
+			return ts, fmt.Errorf("Invalid ip/cidr: %s", value)
 		}
 		ts.Net = v
 	case "icp", "keyword":
@@ -212,7 +212,7 @@ func (s *AssetStore) AddAgentScope(taskID int64, kind, value, reason, source str
 		}
 		ts.Value = parsed.Value
 	default:
-		return ts, fmt.Errorf("不支持的 kind: %s（company/root_domain/subdomain/ip/cidr/icp/keyword）", kind)
+		return ts, fmt.Errorf("Unsupported kind: %s (company/root_domain/subdomain/ip/cidr/icp/keyword)", kind)
 	}
 	if err := s.upsertTaskScope(ts); err != nil {
 		return ts, err
@@ -273,21 +273,21 @@ type CoverageByType struct {
 	Tested int    `json:"tested"`
 }
 
-// Coverage is a task's rough asset test coverage — a reference figure for the agent,
+// Coverage is a task's rough asset test coverage -- a reference figure for the agent,
 // NOT a precise metric. Denominator = assets matching any active task_scope row;
 // Tested = those anchored to at least one fact node in the exploration.
 type Coverage struct {
-	Enabled     bool             `json:"enabled"`     // 资产覆盖度功能是否开启；false 时其余字段为零值
-	ScopeRows   int              `json:"scope_rows"`  // 0 → 范围未锚定
-	Denominator int              `json:"denominator"` // 范围内资产数
-	Tested      int              `json:"tested"`      // 已测(约)
-	Pct         *float64         `json:"pct"`         // 覆盖度；分母 0 时 null
-	ByType      []CoverageByType `json:"by_type"`     // 按资产类型的 总数/已测
+	Enabled     bool             `json:"enabled"`     // Whether the asset coverage feature is enabled; when false the remaining fields are zero values
+	ScopeRows   int              `json:"scope_rows"`  // 0 -> scope not anchored
+	Denominator int              `json:"denominator"` // Number of assets in scope
+	Tested      int              `json:"tested"`      // Tested (approx.)
+	Pct         *float64         `json:"pct"`         // Coverage; null when the denominator is 0
+	ByType      []CoverageByType `json:"by_type"`     // Totals/tested counts by asset type
 }
 
 // CoverageEnabled reports whether a task has the asset-coverage feature turned on
-// (tasks.coverage_enabled). Missing row / error → true (fail open to the default),
-// so unknown/legacy tasks keep the historical behavior. taskID<=0 → true.
+// (tasks.coverage_enabled). Missing row / error -> true (fail open to the default),
+// so unknown/legacy tasks keep the historical behavior. taskID<=0 -> true.
 func (s *AssetStore) CoverageEnabled(taskID int64) bool {
 	if taskID <= 0 {
 		return true
@@ -299,7 +299,7 @@ func (s *AssetStore) CoverageEnabled(taskID int64) bool {
 	return enabled
 }
 
-// task_scope→assets match predicate, reused by the count / by-type / untested queries. $1=taskID.
+// task_scope->assets match predicate, reused by the count / by-type / untested queries. $1=taskID.
 const covTargetCTE = `
 target AS (
   SELECT DISTINCT a.id, a.type,
@@ -356,7 +356,7 @@ FROM target t GROUP BY t.type ORDER BY t.type`, taskID, expID)
 }
 
 // ---------------------------------------------------------------------------
-// Coverage graph — a force-directed view of a task's in-scope assets.
+// Coverage graph -- a force-directed view of a task's in-scope assets.
 // ---------------------------------------------------------------------------
 
 // CoverageGraphNode is one node of the asset coverage graph. Node identity is a
@@ -383,8 +383,8 @@ type CoverageGraphNode struct {
 	StatusCode  int    `json:"status_code,omitempty"`
 }
 
-// CoverageGraphEdge is a child→parent containment link (endpoint→service→
-// subdomain/ip→root_domain→company, app→company).
+// CoverageGraphEdge is a child->parent containment link (endpoint->service->
+// subdomain/ip->root_domain->company, app->company).
 type CoverageGraphEdge struct {
 	Src string `json:"src"`
 	Dst string `json:"dst"`
@@ -399,7 +399,7 @@ type CoverageGraphData struct {
 func assetKey(id int64) string   { return "a:" + strconv.FormatInt(id, 10) }
 func companyKey(id int64) string { return "c:" + strconv.FormatInt(id, 10) }
 
-// hostPortOf returns the (host, port) a service / endpoint node hangs off — the
+// hostPortOf returns the (host, port) a service / endpoint node hangs off -- the
 // domain if set, otherwise the URL host, otherwise the IP.
 func hostPortOf(n *CoverageGraphNode) (string, int) {
 	host, port := n.Domain, n.Port
@@ -439,9 +439,9 @@ ORDER BY a.id`, taskID)
 	defer rows.Close()
 
 	byKey := map[string]*CoverageGraphNode{}
-	rootByDomain := map[string]string{} // root domain → node key
-	subByDomain := map[string]string{}  // subdomain    → node key
-	ipByAddr := map[string]string{}     // ip literal   → node key
+	rootByDomain := map[string]string{} // root domain -> node key
+	subByDomain := map[string]string{}  // subdomain    -> node key
+	ipByAddr := map[string]string{}     // ip literal   -> node key
 	svcByHostPort := map[string]string{}
 	svcByHost := map[string]string{}
 	companyIDs := map[int64]bool{} // referenced company ids (need a node)
@@ -526,7 +526,7 @@ WHERE type='root_domain' AND domain=$1 LIMIT 1`, root).Scan(&id, &companyID)
 		rootByDomain[root] = node.Key
 	}
 
-	// Company nodes for every referenced company id — always gray context.
+	// Company nodes for every referenced company id -- always gray context.
 	for id := range companyIDs {
 		key := companyKey(id)
 		if _, ok := byKey[key]; ok {
@@ -604,7 +604,7 @@ func coverageNodeLabel(n *CoverageGraphNode) string {
 }
 
 // ListUntestedAssets returns a task's in-scope, not-yet-tested assets, optionally
-// filtered by asset type, paginated. Returns the page + the total count. limit<=0 → 10.
+// filtered by asset type, paginated. Returns the page + the total count. limit<=0 -> 10.
 func (s *AssetStore) ListUntestedAssets(taskID, expID int64, typ string, limit, offset int) ([]CoverageAsset, int, error) {
 	if limit <= 0 {
 		limit = 10

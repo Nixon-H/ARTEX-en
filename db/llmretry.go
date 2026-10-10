@@ -5,18 +5,18 @@ import (
 	"time"
 )
 
-// LLM 重试策略：五层重试的「次数 + 间隔」全局配置，见 docs/LLM重试设计.md。
-// 存在 settings 表的一个 JSON 值里 —— 它是整机一份的运行参数，不值得为它开一张表；
-// 读取走内置默认兜底，所以键不存在(全新库/从未配置过)时行为与写死常量时代完全一致。
+// LLM retry policy: the global "attempts + intervals" config for the five-layer retry, see docs/LLMretry design.md.
+// lives in a single JSON value of the settings table -- it is a machine-wide run parameter, not worth a dedicated table;
+// Reads fall back to built-in defaults, so when the key is absent (fresh DB / never configured) behavior exactly matches the hardcoded-constants era.
 
 const settingLLMRetryPolicy = "llm_retry_policy"
 
 // RetryRule is one layer's knob pair. The zero value means "unset":
 //
-//	Attempts   0 = 用内置默认次数; -1 = 关闭该层重试; >0 = 用该值
-//	IntervalMS 0 = 用该层原本的间隔策略(通常是指数退避); >0 = 改用固定毫秒间隔
+//	Attempts   0 = use built-in default attempts; -1 = disable retries at this layer; >0 = use this value
+//	IntervalMS 0 = use that layer's original interval policy (usually exponential backoff); >0 = use a fixed millisecond interval
 //
-// -1 是「显式关掉」而不是「0 次」，因为 0 已经被「未配置」占用了。
+// -1 means "explicitly off" rather than "0 attempts", because 0 is already taken by "unconfigured".
 type RetryRule struct {
 	Attempts   int `json:"attempts"`
 	IntervalMS int `json:"interval_ms"`
@@ -76,20 +76,20 @@ func (o RetryOverride) Clamped() RetryOverride {
 	return o
 }
 
-// LLMRetryPolicy holds the五层 retry configuration. Connect/Empty/Stream are the
+// LLMRetryPolicy holds the five-layer retry configuration. Connect/Empty/Stream are the
 // per-request layers (a profile may override them, see LLMProfile.Retry);
 // Breaker and Intent are process-wide by nature and live only here.
 type LLMRetryPolicy struct {
-	// Connect：SDK 建连重试(连接重置/超时/429/5xx，流开始前)。默认 3 次、指数退避。
+	// Connect: SDK connection-establishment retries (connection reset/timeout/429/5xx, before stream starts). Default 3 attempts with exponential backoff.
 	Connect RetryRule `json:"connect"`
-	// Empty：SDK 空响应重试(完成但无 content block，仅 openai 格式)。默认 2 次、指数退避。
+	// Empty: retry on empty SDK responses (completed but with no content block, openai format only). Defaults to 2 retries with exponential backoff.
 	Empty RetryRule `json:"empty"`
-	// Stream：同 provider 安全窗口重试(未交付输出前的断流重放)。默认 2 次、0.5s 起指数(封顶 4s)。
+	// Stream: retry within the same provider safe window (replay of an interrupted stream before any output was delivered). Defaults to 2 retries, exponential backoff starting at 0.5s (capped at 4s).
 	Stream RetryRule `json:"stream"`
-	// Breaker：轮询熔断。Attempts=连续几次瞬时失败触发熔断(默认 3，-1=瞬时失败不熔断，
-	// 硬失败如余额不足/密钥失效仍立即熔断)；IntervalMS=固定冷却时长(0=默认 1/5/30min 梯度)。
+	// Breaker: polling circuit breaker. Attempts = consecutive transient failures that trip the breaker (default 3, -1 = transient failures never trip it,
+	// hard failures such as insufficient balance / invalid keys still trip the breaker immediately); IntervalMS = fixed cooldown duration (0 = default 1/5/30min gradient).
 	Breaker RetryRule `json:"breaker"`
-	// Intent：worker 以 model_error 收场后的整条意图重跑。默认 2 次、固定 3s。
+	// Intent: full-intent rerun after a worker ends with model_error. Default 2 attempts, fixed 3s.
 	Intent RetryRule `json:"intent"`
 }
 
@@ -101,7 +101,7 @@ func (p LLMRetryPolicy) Clamped() LLMRetryPolicy {
 }
 
 // LLMRetryPolicy reads the global retry policy. A missing or unparseable value
-// yields the zero policy — i.e. every layer on its built-in default.
+// yields the zero policy -- i.e. every layer on its built-in default.
 func (d *DB) LLMRetryPolicy() LLMRetryPolicy {
 	var p LLMRetryPolicy
 	if d == nil {

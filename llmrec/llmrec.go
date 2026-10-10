@@ -40,8 +40,8 @@ func TaskIDFrom(ctx context.Context) string {
 
 // WithWorker overrides the agent-lane ("worker") label for an LLM call. The lane
 // is normally parsed from the transcript session id (exp<N>-<role>); calls made
-// outside the engine's worker/planner sessions — e.g. the intercept fallback judge
-// — carry no such session, so they attach their lane explicitly here. This lets the
+// outside the engine's worker/planner sessions -- e.g. the intercept fallback judge
+// -- carry no such session, so they attach their lane explicitly here. This lets the
 // usage ledger single out that spend (worker='judge') for the config page.
 func WithWorker(ctx context.Context, worker string) context.Context {
 	worker = strings.TrimSpace(worker)
@@ -66,9 +66,9 @@ type Recorder struct {
 	pg    *db.DB
 	model string // model name (from config, not in CompletionRequest)
 	prof  string // LLM profile name (from llm_profiles)
-	// thinkingType / reasoningEffort 是配置级思考参数(思考开关 / 思考强度)。它们在
-	// norma 的 buildBody() 里从 provider 配置注入真正的 HTTP body,不出现在
-	// CompletionRequest 上,故 Recorder 需在此单独带一份,序列化时写进录制。
+	// thinkingType / reasoningEffort are config-level thinking params(thinking toggle / thinking intensity).they live in
+	// In norma's buildBody(), the real HTTP body is injected from the provider config, and does not appear in
+	// CompletionRequest, so Recorder must carry a separate copy here, written into the recording during serialization.
 	thinkingType    string
 	reasoningEffort string
 	enabled         func() bool // reports whether recording is currently on; nil = always record
@@ -86,7 +86,7 @@ func Wrap(inner llm.Provider, pg *db.DB, model, profName, thinkingType, reasonin
 }
 
 // parseSession extracts task id and worker role from session strings like
-// "exp1-worker-i3" → ("1", "worker") or "exp2-planner" → ("2", "planner").
+// "exp1-worker-i3" -> ("1", "worker") or "exp2-planner" -> ("2", "planner").
 func parseSession(s string) (taskID, worker string) {
 	// format: exp<N>-<role>[-suffix]
 	if !strings.HasPrefix(s, "exp") {
@@ -117,7 +117,7 @@ func parseSession(s string) (taskID, worker string) {
 // planner and multiple workers share one Recorder instance.
 func (r *Recorder) Stream(ctx context.Context, req llm.CompletionRequest) iter.Seq2[llm.StreamEvent, error] {
 	// Body recording (the heavy debug trace: full request/response) is gated by the
-	// llm_record setting. Lightweight usage metering always runs — it powers token
+	// llm_record setting. Lightweight usage metering always runs -- it powers token
 	// stats and must be complete even for interrupted/failed runs, so it is NOT
 	// gated. Only body serialization + response accumulation are skipped when off.
 	recordBodies := r.enabled == nil || r.enabled()
@@ -137,7 +137,7 @@ func (r *Recorder) Stream(ctx context.Context, req llm.CompletionRequest) iter.S
 
 	// Serialize the request only when storing bodies (this is the expensive part).
 	// Alongside it, attach a Capture so the HTTP transport can hand back the
-	// untouched wire bodies — the normalized view below cannot reconstruct them
+	// untouched wire bodies -- the normalized view below cannot reconstruct them
 	// (tool schemas are dropped, tool_use blocks never reach this layer, and the
 	// SSE framing is already decoded). See capture.go.
 	reqBody := ""
@@ -166,9 +166,9 @@ func (r *Recorder) Stream(ctx context.Context, req llm.CompletionRequest) iter.S
 			if err != nil {
 				status = "error"
 			}
-			// Lightweight metering row — always written.
+			// Lightweight metering row -- always written.
 			r.recordUsage(taskID, expID, worker, usage, int(time.Since(start).Milliseconds()), status)
-			// Heavy trace row — only when body recording is on.
+			// Heavy trace row -- only when body recording is on.
 			if recordBodies {
 				r.record(req, session, taskID, worker, reqBody, capt, start, textBuf.String(), thinkingBuf.String(), usage, stopReason, err)
 			}
@@ -187,7 +187,7 @@ func (r *Recorder) Stream(ctx context.Context, req llm.CompletionRequest) iter.S
 			// Always track usage (cheap); accumulate text/thinking only for bodies.
 			// Anthropic (and the other providers) split token usage across events:
 			// message_start carries ONLY the input side (input + cache), message_delta
-			// ONLY the output. They must be FOLDED with Add — overwriting on delta
+			// ONLY the output. They must be FOLDED with Add -- overwriting on delta
 			// would zero out the input already counted at start (mirrors the SDK's own
 			// llm.Accumulator; see norma/llm/accumulate.go).
 			switch ev.Type {
@@ -358,9 +358,9 @@ func (r *Recorder) serializeRequest(req llm.CompletionRequest) string {
 		"messages":   req.Messages,
 		"max_tokens": req.MaxTokens,
 	}
-	// 记录本次调用实际发出的思考参数。type 采用「有效值」：每请求覆盖 req.Thinking
-	// 优先于配置级 thinkingType(与 norma buildBody 的判定一致，如 compaction 摘要会
-	// 强制 disabled)；effort 无每请求覆盖，直接取配置值。两者皆空则不写 thinking 字段。
+	// Record the thinking parameters actually sent for this call. type uses the "effective value": the per-request override req.Thinking
+	// takes precedence over the config-level thinkingType (consistent with the norma buildBody decision, e.g. a compaction summary will
+	// force disabled); effort has no per-request override, so take the config value directly. If both are empty, the thinking field is not written.
 	effType := r.thinkingType
 	if req.Thinking != "" {
 		effType = req.Thinking

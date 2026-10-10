@@ -2,9 +2,9 @@ package agent
 
 // cold-digest §6: graph_overview folding + the restore tools.
 //
-//	coldDigestsRecent — builds the folded cold region for graph_overview:
+//	coldDigestsRecent -- builds the folded cold region for graph_overview:
 //	  cold_digests (flat {id, body, member_count}), newest-member first, capped.
-//	expand_digest(id)  — level-1 restore: a digest's member compact list.
+//	expand_digest(id)  -- level-1 restore: a digest's member compact list.
 
 import (
 	"context"
@@ -16,7 +16,7 @@ import (
 	actool "github.com/Autumn-27/norma/tool"
 )
 
-// digestMemberEntry builds the compact per-member view expand_digest returns —
+// digestMemberEntry builds the compact per-member view expand_digest returns --
 // same shape as recent_facts / recent_done_intents (§6.1 middle level). store is
 // the digest's OWNING store (the current task, or a read-only source task §2).
 func (t *ToolSet) digestMemberEntry(store *db.ExplorationStore, id int64) map[string]any {
@@ -37,9 +37,9 @@ func (t *ToolSet) digestMemberEntry(store *db.ExplorationStore, id int64) map[st
 
 // coldDigestsRecent returns a store's active digests as flat bodies for
 // graph_overview, ordered by the recency of their freshest member (max member id ≈
-// latest cooled node — a digest near the live frontier is likelier relevant), and
+// latest cooled node -- a digest near the live frontier is likelier relevant), and
 // capped at `cap`. Overflow digest ids are returned separately (moreIDs) so they
-// stay reachable via expand_digest even when not shown inline — cold_digests is the
+// stay reachable via expand_digest even when not shown inline -- cold_digests is the
 // only exit for folded cold nodes. Shared by the current task overview and the
 // read-only related-task overview (§2 cross-task reuse).
 func coldDigestsRecent(store *db.ExplorationStore, cap int) (shown []map[string]any, moreIDs []int64) {
@@ -58,7 +58,7 @@ func coldDigestsRecent(store *db.ExplorationStore, cap int) (shown []map[string]
 			Body string `json:"body"`
 		}
 		_ = json.Unmarshal(d.Payload, &p)
-		ms, _ := store.DigestMembers(d.ID) // sorted asc → last = freshest
+		ms, _ := store.DigestMembers(d.ID) // sorted asc -> last = freshest
 		var fresh int64
 		if len(ms) > 0 {
 			fresh = ms[len(ms)-1]
@@ -81,9 +81,9 @@ func coldDigestsRecent(store *db.ExplorationStore, cap int) (shown []map[string]
 }
 
 // hiddenMembersFor returns a predicate telling whether a member is hidden (folded
-// into an active digest AND still cold) in the given store — so a source task's
-// overview folds exactly the way that task folds itself (§2 cross-task: "当前任务
-// 什么展示逻辑，关联任务就什么逻辑"). A revived (now hot) covered member is NOT
+// into an active digest AND still cold) in the given store -- so a source task's
+// overview folds exactly the way that task folds itself (§2 cross-task: "current task
+// Whatever the display logic is, the associated task follows the same logic"). A revived (now hot) covered member is NOT
 // hidden (§6 render-time revival check). Returns a never-hidden predicate when the
 // store has no digests.
 func hiddenMembersFor(store *db.ExplorationStore) func(int64) bool {
@@ -119,11 +119,11 @@ func (t *ToolSet) resolveDigest(id int64) (*db.Node, *db.ExplorationStore, int64
 // node's full detail.
 func (t *ToolSet) expandDigest() actool.CoreTool {
 	return t.writeExpTool("expand_digest",
-		"展开一个 cold digest：返回它折叠的成员紧凑列表（id/summary/state/confidence），与概览 recent_facts/recent_done_intents 同形状。要某条完整细节/证据用 node_detail(member_id)。",
+		"Expand a cold digest: returns its folded members as a compact list (id/summary/state/confidence), shaped like the overview's recent_facts/recent_done_intents. For a member's full details/evidence use node_detail(member_id).",
 		map[string]any{
 			"type": "object",
 			"properties": map[string]any{
-				"id": map[string]any{"type": "integer", "description": "digest 节点 id（来自概览 cold_digests）"},
+				"id": map[string]any{"type": "integer", "description": "digest node id (from the overview's cold_digests)"},
 			},
 			"required": []any{"id"},
 		},
@@ -134,7 +134,7 @@ func (t *ToolSet) expandDigest() actool.CoreTool {
 			_ = json.Unmarshal(raw, &in)
 			n, store, srcTaskID := t.resolveDigest(in.ID)
 			if n == nil {
-				return jsonResult(map[string]any{"error": fmt.Sprintf("#%d 不是 digest 节点（本任务或直接关联任务里都没找到）", in.ID)})
+				return jsonResult(map[string]any{"error": fmt.Sprintf("#%d is not a digest node (not found in this task or directly related tasks)", in.ID)})
 			}
 			var p struct {
 				Body string `json:"body"`
@@ -144,7 +144,7 @@ func (t *ToolSet) expandDigest() actool.CoreTool {
 			list := make([]map[string]any, 0, len(members))
 			for _, m := range members {
 				entry := t.digestMemberEntry(store, m)
-				if srcTaskID > 0 { // 关联任务的成员：只读，带继承标记（§2）
+				if srcTaskID > 0 { // members of a related task: read-only, with inheritance marker (§2)
 					entry["inherited"] = true
 					entry["source_task_id"] = srcTaskID
 				}

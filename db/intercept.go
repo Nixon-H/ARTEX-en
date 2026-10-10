@@ -37,7 +37,7 @@ type InterceptPending struct {
 	ToolInput      json.RawMessage `json:"tool_input"`
 	Status         string          `json:"status"`
 	DecisionSource string          `json:"decision_source"`
-	Reason         string          `json:"reason"` // 规则 message 或模型判定理由(前缀 [模型])
+	Reason         string          `json:"reason"` // Rule message or model decision rationale (prefix [Model])
 	DecidedAt      *time.Time      `json:"decided_at"`
 	CreatedAt      time.Time       `json:"created_at"`
 }
@@ -107,8 +107,8 @@ func (d *DB) ToggleInterceptRule(id int64, enabled bool) error {
 }
 
 // CreateInterceptPending inserts a pending approval record and returns its ID.
-// convID == 0 → conversation_id stored as NULL (background task).
-// taskID == "" → task_id stored as NULL.
+// convID == 0 -> conversation_id stored as NULL (background task).
+// taskID == "" -> task_id stored as NULL.
 func (d *DB) CreateInterceptPending(ruleID, convID int64, taskID, agentName, toolName string, input []byte, reason string, audits ...*InterceptAudit) (int64, error) {
 	raw := json.RawMessage(input)
 	if len(raw) == 0 {
@@ -122,7 +122,7 @@ func (d *DB) CreateInterceptPending(ruleID, convID int64, taskID, agentName, too
 	if taskID != "" {
 		taskIDPtr = &taskID
 	}
-	// ruleID == 0 → NULL: the LLM fallback judge has no owning rule.
+	// ruleID == 0 -> NULL: the LLM fallback judge has no owning rule.
 	var ruleIDPtr *int64
 	if ruleID != 0 {
 		ruleIDPtr = &ruleID
@@ -143,7 +143,7 @@ func (d *DB) DecideInterceptPending(id int64, status string) error {
 
 // CreateDecidedIntercept inserts an intercept_pending row ALREADY in a final state
 // (status = 'allowed' | 'denied'), decided_at stamped now. Used to log allow/deny
-// rule matches for observability — they don't block and need no user action, so unlike
+// rule matches for observability -- they don't block and need no user action, so unlike
 // CreateInterceptPending (which starts 'pending') this records the outcome directly.
 func (d *DB) CreateDecidedIntercept(ruleID, convID int64, taskID, agentName, toolName string, input []byte, status, reason string, audits ...*InterceptAudit) (int64, error) {
 	raw := json.RawMessage(input)
@@ -158,7 +158,7 @@ func (d *DB) CreateDecidedIntercept(ruleID, convID int64, taskID, agentName, too
 	if taskID != "" {
 		taskIDPtr = &taskID
 	}
-	// ruleID == 0 → NULL: the LLM fallback judge has no owning rule.
+	// ruleID == 0 -> NULL: the LLM fallback judge has no owning rule.
 	var ruleIDPtr *int64
 	if ruleID != 0 {
 		ruleIDPtr = &ruleID
@@ -228,7 +228,7 @@ func scanInterceptApprovalRow(rows interface{ Scan(...any) error }, r *Intercept
 // Keep legacy rows without decision_source consistent with their displayed source.
 const approvalDecisionSource = `COALESCE(NULLIF(ip.decision_source,''), CASE
  WHEN ip.rule_id IS NOT NULL THEN 'rule'
- WHEN ip.reason LIKE '[模型]%' THEN 'model' ELSE 'unknown' END)`
+ WHEN ip.reason LIKE '[Model]%' THEN 'model' ELSE 'unknown' END)`
 
 const approvalRowColumns = `ip.id, ip.rule_id, ip.conversation_id, ip.task_id, ip.agent_name,
        ip.tool_name, ip.tool_input, ip.status, ip.reason, ip.decided_at, ip.created_at, ` + approvalDecisionSource + `,
@@ -248,7 +248,7 @@ func interceptSource(ruleID int64, reason string) string {
 	if ruleID != 0 {
 		return "rule"
 	}
-	if strings.HasPrefix(reason, "[模型]") {
+	if strings.HasPrefix(reason, "[Model]") {
 		return "model"
 	}
 	return "unknown"

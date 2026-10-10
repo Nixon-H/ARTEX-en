@@ -12,7 +12,7 @@ import (
 )
 
 // =====================================================================
-// 统一资产表
+// Unified asset table
 // =====================================================================
 
 // Asset is a row in the assets table.
@@ -308,7 +308,7 @@ var ErrAssetIPInvalid = errors.New("invalid asset ip")
 
 // ValidateAssetIP keeps hostnames out of assets.ip. Network attribution casts
 // that column to inet (see try_inet in schema.sql), so a hostname stored here is
-// silently invisible to every IP/CIDR scope rule — the asset simply never gets
+// silently invisible to every IP/CIDR scope rule -- the asset simply never gets
 // attributed and nobody can tell why. The message states the fix rather than
 // just the fault, so an agent can correct the item on its next turn. An empty
 // value is accepted: the ip field is optional for service and endpoint assets.
@@ -317,8 +317,8 @@ func ValidateAssetIP(value string) error {
 		return nil
 	}
 	return fmt.Errorf(
-		"%w: ip 必须是 IPv4/IPv6 地址，收到 %q。若这是主机名，请改用 type=subdomain 并填 domain 字段；"+
-			"若确实要登记地址，请先解析出 A/AAAA 记录，再用解析出的地址填 ip",
+		"%w: ip must be an IPv4/IPv6 address, got %q. If this is a hostname, use type=subdomain and fill the domain field instead;"+
+			"If you really need to register an address, first resolve its A/AAAA records, then fill ip with the resolved addresses",
 		ErrAssetIPInvalid, value)
 }
 
@@ -935,7 +935,7 @@ RETURNING id`,
 
 // linkHostAssets ensures a service/endpoint's host is also registered as its own
 // root_domain and (when it's a real subdomain, not the apex or an IP) subdomain
-// asset — so those asset types stay populated and can anchor task scope. Best-effort.
+// asset -- so those asset types stay populated and can anchor task scope. Best-effort.
 func (s *AssetStore) linkHostAssets(domain, rootDomain string, taskID int64) {
 	if rootDomain != "" {
 		_, _ = s.UpsertRootDomain(UpsertRootDomainReq{Domain: rootDomain, TaskID: taskID})
@@ -1050,7 +1050,7 @@ RETURNING id`,
 	if err != nil {
 		return 0, err
 	}
-	// side effects: endpoint previously registered none — register its host as
+	// side effects: endpoint previously registered none -- register its host as
 	// root_domain + subdomain(+IP) so those asset types get populated too.
 	s.linkHostAssets(domain, rootDomain, req.TaskID)
 	if req.IP != "" {

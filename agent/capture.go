@@ -17,7 +17,7 @@ import (
 // captureRun drives one agent turn-to-completion over Session.Prompt and emits a
 // coalesced ActivityRecord per execution step (tool_use / tool_result / text /
 // thinking / result). It is shared by every LLM agent in the system (worker,
-// planner, …) so their execution is visible instead of a black box — the old
+// planner, ...) so their execution is visible instead of a black box -- the old
 // agentcore.Run discarded every event. The emitted records carry only
 // Kind/Tool/ToolUseID/IsError/Summary/Detail; the caller's emit fills in
 // IntentID/Worker. Returns the final assistant text + terminal error.
@@ -85,7 +85,7 @@ func captureRunSession(ctx context.Context, s *agentcore.Session, input string, 
 				rec(activityWithUsage(db.Activity{Kind: "result", Summary: firstLine(sum, 400), Detail: detail}, lastUsage))
 				return finalText, reason, ctx.Err()
 			}
-			rec(activityWithUsage(db.Activity{Kind: "result", IsError: true, Summary: "执行出错: " + err.Error(), Detail: err.Error()}, lastUsage))
+			rec(activityWithUsage(db.Activity{Kind: "result", IsError: true, Summary: "Execution error: " + err.Error(), Detail: err.Error()}, lastUsage))
 			return finalText, reason, err
 		}
 		switch ev.Kind {
@@ -117,7 +117,7 @@ func captureRunSession(ctx context.Context, s *agentcore.Session, input string, 
 		case harness.KindUsage:
 			// live cumulative token usage (per model turn). Emitted as a non-rendered
 			// "usage" activity carrying only the token fields; the UI uses the latest
-			// one for a running session's live token count. Don't flush() here — the
+			// one for a running session's live token count. Don't flush() here -- the
 			// buffered final-answer text must stay for the KindResult de-dup.
 			if ev.Usage != nil {
 				u := *ev.Usage
@@ -192,7 +192,7 @@ func firstLine(s string, max int) string {
 		s = before
 	}
 	if utf8.RuneCountInString(s) > max {
-		s = string([]rune(s)[:max]) + "…"
+		s = string([]rune(s)[:max]) + "..."
 	}
 	return s
 }

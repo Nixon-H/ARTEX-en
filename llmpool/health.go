@@ -1,6 +1,6 @@
-// Package llmpool implements LLM failover ("轮询"): a Provider decorator that
+// Package llmpool implements LLM failover ("round-robin"): a Provider decorator that
 // walks an ordered chain of LLM profiles and moves to the next one when the
-// current one can't serve the request — out of credit, revoked key, rate-limited
+// current one can't serve the request -- out of credit, revoked key, rate-limited
 // past the SDK's own retries, or down.
 //
 // The chain is built by the server from llm_profiles (active profile first, then
@@ -121,7 +121,7 @@ func (r *Registry) Pass(id int64) {
 	st := r.m[id]
 	if st == nil || (st.Fails == 0 && st.Trips == 0 && st.OpenUntil.IsZero()) {
 		r.mu.Unlock()
-		return // already clean — nothing to write
+		return // already clean -- nothing to write
 	}
 	delete(r.m, id)
 	forget := r.forget
@@ -161,7 +161,7 @@ func (r *Registry) Trip(id int64, errMsg string, hard bool) (tripped bool) {
 	return tripped
 }
 
-// Reset clears one profile's state — the UI's "立即恢复" action.
+// Reset clears one profile's state -- the UI's "Recover now" action.
 func (r *Registry) Reset(id int64) {
 	r.mu.Lock()
 	delete(r.m, id)

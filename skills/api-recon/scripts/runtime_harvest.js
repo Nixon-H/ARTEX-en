@@ -2,8 +2,8 @@
 /*
  * runtime_harvest.js <config.json>
  *
- * 参考模板 — 非通用成品。执行前须按目标站点调整 config.json 及脚本内逻辑：
- *   cookies/localStorage、neutralize 字段、stubs 结构、loginUrlPattern、apiPattern
+ * reference template -- not a generic ready-made template.must be adjusted for the target site before running config.json and in-script logic: 
+ *   cookies/localStorage, neutralize field, stubs structure, loginUrlPattern, apiPattern
  *
  * Drives a headless browser through an authorized SPA to capture the live API
  * surface (method + url + body) by defeating three client-side gates:
@@ -157,7 +157,7 @@ function neutralize(txt, n) {
     const stub = (cfg.stubs || []).find(s => s._re.test(u));
     if (stub) return req.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(stub.body) });
 
-    // SSE: forwarding a text/event-stream would hang the handler — record + short-circuit
+    // SSE: forwarding a text/event-stream would hang the handler -- record + short-circuit
     const accept = (req.headers().accept || '');
     if (/text\/event-stream/.test(accept)) { sse.add(entry.u); return req.respond({ status: 200, contentType: 'application/json', body: '{}' }); }
 
@@ -193,7 +193,7 @@ function neutralize(txt, n) {
     links: [...document.querySelectorAll('a[href^="/"]')].map(a => a.getAttribute('href'))
   }));
   console.log(`[*] after boot: url=${shell.url}  loginForm=${shell.loginForm}`);
-  if (shell.loginForm) console.log('[!] still on login — recheck render-gate facts (cookies/localStorage) in config');
+  if (shell.loginForm) console.log('[!] still on login -- recheck render-gate facts (cookies/localStorage) in config');
 
   // discovered menu links extend the route list
   const routes = [...new Set([...cfg.routes, ...shell.links.filter(h => h && h.length > 1)])];

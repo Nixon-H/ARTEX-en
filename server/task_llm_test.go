@@ -117,7 +117,7 @@ func TestIsQuotaExhaustedError(t *testing.T) {
 		`billing_hard_limit_reached`,
 		`billing_not_active`,
 		`HTTP status 402 Payment Required`,
-		`账户余额不足，请充值`,
+		`Insufficient account balance, please top up`,
 		`credit balance is too low`,
 	}
 	for _, message := range positive {
@@ -457,7 +457,7 @@ func TestTaskLLMRuntimeErrorSkipsWorkerReplay(t *testing.T) {
 
 // A transient pre-commit stream failure (200-then-drop / overloaded / 5xx) is
 // retried on the SAME provider, without switching profiles, and succeeds once the
-// blip clears — instead of surfacing as a model_error.
+// blip clears -- instead of surfacing as a model_error.
 func TestTaskLLMStreamRetriesTransientPreCommitOnSameProvider(t *testing.T) {
 	defer withZeroRetryBackoff()()
 	provider := &flakyThenOKProvider{
@@ -515,7 +515,7 @@ func TestTaskLLMStreamSurfacesTransientAfterRetriesExhausted(t *testing.T) {
 	}
 }
 
-// A deterministic 4xx rejection is NOT retried on the same provider — replaying
+// A deterministic 4xx rejection is NOT retried on the same provider -- replaying
 // the identical request everywhere fails the same way.
 func TestTaskLLMStreamDoesNotRetryDeterministicRejection(t *testing.T) {
 	defer withZeroRetryBackoff()()
@@ -571,7 +571,7 @@ func TestResolvedTaskStatusKeepsExhaustedStartedTaskRunning(t *testing.T) {
 	}
 }
 
-// A role with no Agent binding falls through to the task chain, then to global —
+// A role with no Agent binding falls through to the task chain, then to global --
 // and an exhausted chain stays a hard stop instead of silently borrowing global.
 func TestTaskRuntimeAvailableUnboundRoleFollowsChainThenGlobal(t *testing.T) {
 	t.Parallel()

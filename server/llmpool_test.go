@@ -2,7 +2,7 @@ package server
 
 import "testing"
 
-// The status list drives the "轮询顺序" strip in the UI, so it has to match the
+// The status list drives the "polling order" strip in the UI, so it has to match the
 // order PoolProfiles actually runs: active first, then priority DESC, then id ASC
 // (input arrives id-ordered, so equal priorities must keep their relative order).
 func TestSortPoolStatusMatchesChainOrder(t *testing.T) {
@@ -27,7 +27,7 @@ func TestSortPoolStatusMatchesChainOrder(t *testing.T) {
 	}
 }
 
-// The active profile heads the chain no matter how low its own priority is —
+// The active profile heads the chain no matter how low its own priority is --
 // that's the documented precedence, and the UI must not imply otherwise.
 func TestActiveProfileHeadsStatusList(t *testing.T) {
 	in := []LLMPoolMemberStatus{

@@ -10,12 +10,12 @@ import (
 // TestPoolProfilesOrder pins the failover chain query: keyless profiles can't
 // serve a request and excluded ones aren't fallback targets, so neither belongs
 // in the chain; the rest come back by priority, highest first.
-// Deliberately does NOT touch is_default — flipping the active profile would be a
+// Deliberately does NOT touch is_default -- flipping the active profile would be a
 // side effect on the shared dev database.
 func TestPoolProfilesOrder(t *testing.T) {
 	d, err := Open(testDSN(t))
 	if err != nil {
-		t.Skipf("postgres unavailable (%v) — skipping", err)
+		t.Skipf("postgres unavailable (%v) -- skipping", err)
 	}
 	defer d.Close()
 
@@ -33,7 +33,7 @@ func TestPoolProfilesOrder(t *testing.T) {
 	lo := mk("t-pool-lo", 1, false, "k1")
 	hi := mk("t-pool-hi", 9, false, "k2")
 	mk("t-pool-excluded", 99, true, "k3") // excluded despite the top priority
-	mk("t-pool-nokey", 50, false, "")     // no key → cannot serve anything
+	mk("t-pool-nokey", 50, false, "")     // no key -> cannot serve anything
 
 	chain, err := d.PoolProfiles()
 	if err != nil {
@@ -67,7 +67,7 @@ func TestDeleteProfileContextHonorsCancellation(t *testing.T) {
 func TestConfigStores(t *testing.T) {
 	d, err := Open(testDSN(t))
 	if err != nil {
-		t.Skipf("postgres unavailable (%v) — skipping", err)
+		t.Skipf("postgres unavailable (%v) -- skipping", err)
 	}
 	defer d.Close()
 
@@ -95,8 +95,8 @@ func TestConfigStores(t *testing.T) {
 			if string(b) == "" || contains(string(b), "secret123") {
 				t.Fatalf("api key leaked in list json: %s", b)
 			}
-			if p.APIKeyHint != "…t123" {
-				t.Fatalf("hint want …t123, got %q", p.APIKeyHint)
+			if p.APIKeyHint != "...t123" {
+				t.Fatalf("hint want ...t123, got %q", p.APIKeyHint)
 			}
 		}
 	}
@@ -106,16 +106,16 @@ func TestConfigStores(t *testing.T) {
 	if err != nil || ag == nil {
 		t.Fatalf("planner agent: %v", err)
 	}
-	v1, err := d.SavePrompt(ag.ID, "你是规划者 {{.Goal}}", "init", "test")
+	v1, err := d.SavePrompt(ag.ID, "You are the planner {{.Goal}}", "init", "test")
 	if err != nil {
 		t.Fatal(err)
 	}
-	v2, _ := d.SavePrompt(ag.ID, "你是规划者 v2 {{.Goal}} {{.Scope}}", "edit", "test")
+	v2, _ := d.SavePrompt(ag.ID, "You are the planner v2 {{.Goal}} {{.Scope}}", "edit", "test")
 	if v2 != v1+1 {
 		t.Fatalf("version should increment: %d -> %d", v1, v2)
 	}
 	cur, _ := d.CurrentPrompt(ag.ID)
-	if cur != "你是规划者 v2 {{.Goal}} {{.Scope}}" {
+	if cur != "You are the planner v2 {{.Goal}} {{.Scope}}" {
 		t.Fatalf("current prompt wrong: %q", cur)
 	}
 	vers, _ := d.ListPromptVersions(ag.ID)
@@ -156,7 +156,7 @@ func TestConfigStores(t *testing.T) {
 	if len(vm) != 1 || vm[0] != mid {
 		t.Fatalf("agent visible mcp: %+v", vm)
 	}
-	// resource-side read (same join row) → bidirectional
+	// resource-side read (same join row) -> bidirectional
 	ra, _ := d.ResourceAgents("mcp", mid)
 	if len(ra) != 1 || ra[0] != ag.ID {
 		t.Fatalf("resource agents: %+v", ra)

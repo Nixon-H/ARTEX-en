@@ -8,11 +8,11 @@ import (
 func TestExplorationFlow(t *testing.T) {
 	d, err := Open(testDSN(t))
 	if err != nil {
-		t.Skipf("postgres unavailable (%v) — skipping", err)
+		t.Skipf("postgres unavailable (%v) -- skipping", err)
 	}
 	defer d.Close()
 
-	expID, err := d.CreateExploration("test", "拿下测试目标")
+	expID, err := d.CreateExploration("test", "Compromise the test target")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -32,7 +32,7 @@ func TestExplorationFlow(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// frontier ordered by priority desc → i2(8) before i1(5)
+	// frontier ordered by priority desc -> i2(8) before i1(5)
 	fr, err := es.Frontier(10)
 	if err != nil {
 		t.Fatal(err)
@@ -66,8 +66,8 @@ func TestExplorationFlow(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// lineage: ancestors of the finding traced backward — here {i2, find} joined by
-	// the yields edge. The proves→goal edge is DOWNSTREAM (goal must be excluded),
+	// lineage: ancestors of the finding traced backward -- here {i2, find} joined by
+	// the yields edge. The proves->goal edge is DOWNSTREAM (goal must be excluded),
 	// and the unrelated intent i1 is not on any path to the finding (excluded too).
 	lnNodes, lnEdges, err := es.FindingLineage(find)
 	if err != nil {
@@ -119,7 +119,7 @@ func TestExplorationFlow(t *testing.T) {
 func TestIntentPauseResumeAndCancelCleanup(t *testing.T) {
 	d, err := Open(testDSN(t))
 	if err != nil {
-		t.Skipf("postgres unavailable (%v) — skipping", err)
+		t.Skipf("postgres unavailable (%v) -- skipping", err)
 	}
 	defer d.Close()
 
@@ -247,16 +247,16 @@ func TestIntentPauseResumeAndCancelCleanup(t *testing.T) {
 	assertCount(`SELECT COUNT(*) FROM assets WHERE id=$1`, 1, assetID)
 }
 
-// TestNodesPageQueryMatchesID verifies the 播报板 search filters on node id (both
-// the bare number and the「#id」form the UI shows) in addition to payload/origin.
+// TestNodesPageQueryMatchesID verifies the broadcast board search filters on node id (both
+// the bare number and the"#id"form the UI shows) in addition to payload/origin.
 func TestNodesPageQueryMatchesID(t *testing.T) {
 	d, err := Open(testDSN(t))
 	if err != nil {
-		t.Skipf("postgres unavailable (%v) — skipping", err)
+		t.Skipf("postgres unavailable (%v) -- skipping", err)
 	}
 	defer d.Close()
 
-	expID, err := d.CreateExploration("test", "id 搜索")
+	expID, err := d.CreateExploration("test", "id search")
 	if err != nil {
 		t.Fatal(err)
 	}

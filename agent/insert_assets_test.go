@@ -42,7 +42,7 @@ func callInsertAssets(t *testing.T, ts *ToolSet, payload any) map[string]any {
 
 // =====================================================================
 // TestInsertAssetsSubdomainSideEffects
-// 子域名插入 → 自动创建 root_domain + IP 资产，IP 绑定域名
+// Subdomain insert -> auto-creates root_domain + IP assets; IP bound to the domain
 // =====================================================================
 func TestInsertAssetsSubdomainSideEffects(t *testing.T) {
 	d := testDB(t)
@@ -111,7 +111,7 @@ func TestInsertAssetsSubdomainSideEffects(t *testing.T) {
 
 // =====================================================================
 // TestInsertAssetsMultiIPSubdomain
-// 多个 IP 的子域名：所有 IP 都应存入 record_value[]，各自创建 IP 资产
+// Subdomain with multiple IPs: all IPs should be stored in record_value[], creating a separate IP asset for each
 // =====================================================================
 func TestInsertAssetsMultiIPSubdomain(t *testing.T) {
 	d := testDB(t)
@@ -159,7 +159,7 @@ func TestInsertAssetsMultiIPSubdomain(t *testing.T) {
 
 // =====================================================================
 // TestInsertAssetsHTTPServiceTechnologies
-// HTTP 服务插入：technologies 存储并可读回；IP 存在时域名和端口写入 IP 资产
+// HTTP service insert: technologies are stored and readable back; when an IP exists, domain and port are written into the IP asset
 // =====================================================================
 func TestInsertAssetsHTTPServiceTechnologies(t *testing.T) {
 	d := testDB(t)
@@ -242,7 +242,7 @@ func TestInsertAssetsHTTPServiceTechnologies(t *testing.T) {
 
 // =====================================================================
 // TestInsertAssetsOtherService
-// 非 HTTP 服务：c_segment 自动生成，IP 资产含 open_ports 和 bound_domains
+// Non-HTTP services: c_segment is auto-generated; IP assets include open_ports and bound_domains
 // =====================================================================
 func TestInsertAssetsOtherService(t *testing.T) {
 	d := testDB(t)
@@ -303,7 +303,7 @@ func TestInsertAssetsOtherService(t *testing.T) {
 
 // =====================================================================
 // TestInsertAssetsMixedBatch
-// 混合批量插入：一次调用插入多种类型
+// Mixed batch insert: insert multiple types in a single call
 // =====================================================================
 func TestInsertAssetsMixedBatch(t *testing.T) {
 	d := testDB(t)
@@ -361,7 +361,7 @@ func TestInsertAssetsMixedBatch(t *testing.T) {
 
 // =====================================================================
 // TestInsertAssetsDedup
-// 幂等写入：同一资产插入两次，返回相同 ID
+// Idempotent write: inserting the same asset twice returns the same ID
 // =====================================================================
 func TestInsertAssetsDedup(t *testing.T) {
 	d := testDB(t)
@@ -398,8 +398,8 @@ func TestInsertAssetsDedup(t *testing.T) {
 
 // =====================================================================
 // TestInsertAssetsRejectsHostnameIPPerItem
-// 一批里混入 ip 填了主机名的一条 → 只有那条失败，其余照常入库，
-// 且错误里带得上 index 和改正方法，Agent 下一轮能自己修好。
+// One item in the batch has a hostname filled in ip -> only that item fails; the rest persist as usual, ...
+// ... and the error carries the index plus how to fix it, so the agent can repair it on its own next round.
 // =====================================================================
 func TestInsertAssetsRejectsHostnameIPPerItem(t *testing.T) {
 	d := testDB(t)
@@ -417,7 +417,7 @@ func TestInsertAssetsRejectsHostnameIPPerItem(t *testing.T) {
 		},
 	})
 
-	// The two valid entries must survive the bad one — a whole-batch failure
+	// The two valid entries must survive the bad one -- a whole-batch failure
 	// would make the agent re-send assets that were already fine.
 	results, _ := out["results"].([]any)
 	if len(results) != 2 {
@@ -435,7 +435,7 @@ func TestInsertAssetsRejectsHostnameIPPerItem(t *testing.T) {
 	message, _ := entry["error"].(string)
 	for _, want := range []string{"cdn.badip-test.com", "type=subdomain", "A/AAAA"} {
 		if !strings.Contains(message, want) {
-			t.Fatalf("error message %q lacks %q — agent cannot act on it", message, want)
+			t.Fatalf("error message %q lacks %q -- agent cannot act on it", message, want)
 		}
 	}
 

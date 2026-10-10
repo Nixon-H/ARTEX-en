@@ -5,7 +5,7 @@
 // It implements the MCP "Streamable HTTP" transport: JSON-RPC over HTTP POST, with
 // the server free to answer either as application/json or a text/event-stream (SSE)
 // carrying the response. Custom headers (e.g. Authorization) come from the MCP
-// row's env map, so a bearer token is configured as {"Authorization":"Bearer …"}.
+// row's env map, so a bearer token is configured as {"Authorization":"Bearer ..."}.
 package mcphttp
 
 import (
@@ -93,7 +93,7 @@ func normalizeHeaders(headers map[string]string) (map[string]string, error) {
 }
 
 // New connects to a remote MCP endpoint and performs the initialize handshake.
-// headers are sent on every request (Authorization, custom API keys, …).
+// headers are sent on every request (Authorization, custom API keys, ...).
 // When insecure is true, TLS certificate verification is skipped so servers that
 // present a self-signed certificate can still be reached (issue #108).
 func New(ctx context.Context, server, url string, headers map[string]string, insecure bool) (*Client, error) {
@@ -315,9 +315,9 @@ func (c *Client) wrap(rt remoteTool) actool.CoreTool {
 			for _, blk := range res.Content {
 				text += blk.Text
 			}
-			// 与内置/自定义工具一致：超长输出走 Capture——按会话 MaxOutputChars（默认
-			// 30000）截断，配了 ToolOutputDir 时全量溢写到磁盘只留 head + 指针，避免大
-			// MCP 结果整段灌爆上下文。
+			// Consistent with built-in/custom tools: overlong output goes through Capture -- truncated per session at MaxOutputChars (default
+			// 30000); when ToolOutputDir is configured, the full output is spilled to disk keeping only head + pointer, to avoid a large
+			// MCP result flooding the context in one chunk.
 			return actool.Result{Content: []llm.ContentBlock{llm.TextBlock(actool.Capture(tc, text))}, IsError: res.IsError}, nil
 		},
 	})
@@ -325,7 +325,7 @@ func (c *Client) wrap(rt remoteTool) actool.CoreTool {
 
 // Call invokes one tool and returns the concatenated text of its content blocks
 // (ScopeSentry answers with a single JSON text block). Unlike the CoreTool wrapper
-// from Tools(), this bypasses the agent permission (AskUser) layer — it is meant
+// from Tools(), this bypasses the agent permission (AskUser) layer -- it is meant
 // for backend batch jobs (e.g. asset sync) that call MCP tools programmatically.
 func (c *Client) Call(ctx context.Context, tool string, args any) (string, error) {
 	raw, err := c.call(ctx, "tools/call", map[string]any{"name": tool, "arguments": args})
@@ -464,7 +464,7 @@ func (c *Client) roundTrip(ctx context.Context, body rpcRequest, expectResp bool
 		return nil, fmt.Errorf("mcp http %d: %s", resp.StatusCode, readSnippet(resp.Body))
 	}
 	if !expectResp {
-		return nil, nil // notification — no JSON-RPC body to parse
+		return nil, nil // notification -- no JSON-RPC body to parse
 	}
 	if strings.HasPrefix(resp.Header.Get("Content-Type"), "text/event-stream") {
 		return parseSSE(resp.Body, body.ID)

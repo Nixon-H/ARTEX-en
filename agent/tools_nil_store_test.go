@@ -10,7 +10,7 @@ import (
 )
 
 // The server-level ToolSet behind buildDomainReg carries a nil ExplorationStore,
-// and the tools table can bind any of its tools to any agent — including agents
+// and the tools table can bind any of its tools to any agent -- including agents
 // that never run inside a task. Every domain tool must therefore survive being
 // called with nil stores: a nil deref here runs on the harness's own goroutine,
 // out of reach of every recover() in the server, and kills the whole process.
@@ -44,7 +44,7 @@ func TestExplorationToolRefusesWithoutTask(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if !res.IsError || !strings.Contains(res.Flatten(), "任务上下文") {
+	if !res.IsError || !strings.Contains(res.Flatten(), "task context") {
 		t.Fatalf("want an explanatory tool error, got IsError=%v %q", res.IsError, res.Flatten())
 	}
 }

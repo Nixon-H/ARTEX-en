@@ -5,7 +5,7 @@ package server
 import "net/http"
 
 // webuiHandler is the no-embed stub (default build). The frontend is NOT bundled
-// into this binary — run it separately with `cd web && npm run dev` during
+// into this binary -- run it separately with `cd web && npm run dev` during
 // development. Build the bundled single-binary with:
 //
 //	cd web && npm run build:static     # produces web/out
@@ -13,6 +13,6 @@ import "net/http"
 //	go build -tags embedui ./cmd/artex
 func (s *Server) webuiHandler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		http.Error(w, "前端未内嵌到此二进制（开发用 next dev；发布用 -tags embedui 构建）", http.StatusNotFound)
+		http.Error(w, "Frontend not embedded in this binary (use next dev for development; build with -tags embedui for release)", http.StatusNotFound)
 	})
 }

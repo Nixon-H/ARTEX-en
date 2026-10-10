@@ -52,7 +52,7 @@ func verifyFile(path, hash string, length int64) error {
 		return err
 	}
 	if n != length || hex.EncodeToString(h.Sum(nil)) != hash {
-		return fmt.Errorf("证据正文校验失败: %s", hash)
+		return fmt.Errorf("Evidence body verification failed: %s", hash)
 	}
 	return nil
 }
@@ -76,10 +76,10 @@ func (s *Store) writeBody(r io.Reader, expectedLength int64, expectedHash string
 	}
 	hash = hex.EncodeToString(h.Sum(nil))
 	if n != expectedLength {
-		return "", fmt.Errorf("正文不完整: 预期 %d 字节，读取 %d 字节", expectedLength, n)
+		return "", fmt.Errorf("Incomplete body: expected %d bytes, read %d bytes", expectedLength, n)
 	}
 	if expectedHash != "" && expectedHash != hash {
-		return "", errors.New("原始流量正文哈希不匹配")
+		return "", errors.New("Original traffic body hash mismatch")
 	}
 	if err = f.Sync(); err != nil {
 		return "", err
@@ -231,7 +231,7 @@ func (s *Store) WithBinding(ctx context.Context, findingID, bindingID int64, fn 
 // the lock before returning. Callers that then stream a body to a client must
 // use this instead of WithBinding: verifyFile+io.Copy is O(body size), so a
 // large download (or a slow client) holding WithEvidenceTx would block every
-// evidence write process-wide. Reading the blob afterwards is safe — blobs are
+// evidence write process-wide. Reading the blob afterwards is safe -- blobs are
 // content-addressed and GC only reaps unreferenced files after a 24h grace
 // period, and an already-open fd survives an unlink regardless.
 func (s *Store) Binding(ctx context.Context, findingID, bindingID int64) (db.FindingTrafficBinding, error) {
@@ -249,7 +249,7 @@ func (s *Store) OpenBody(snapshot db.TrafficEvidenceSnapshot, side string) (*os.
 	if side == "response" {
 		hash, length = snapshot.RespHash, snapshot.RespLen
 	} else if side != "request" {
-		return nil, 0, errors.New("side 必须为 request 或 response")
+		return nil, 0, errors.New("side must be request or response")
 	}
 	path, err := hashPath(s.Dir, hash)
 	if err != nil {
@@ -317,7 +317,7 @@ func (s *Store) WithInstalledSnapshots(ctx context.Context, snapshots []db.Traff
 	return s.DB.WithEvidenceTx(ctx, func(*sql.Tx) error {
 		for _, v := range snapshots {
 			if v.ID != db.TrafficSnapshotID(v) {
-				return errors.New("归档证据快照元数据哈希不匹配")
+				return errors.New("Archived evidence snapshot metadata hash mismatch")
 			}
 			for _, body := range []struct {
 				hash   string

@@ -18,7 +18,7 @@ import (
 //go:embed all:webui/dist
 var webuiDist embed.FS
 
-// webuiHandler serves the embedded SPA. Public (no JWT) — auth is enforced
+// webuiHandler serves the embedded SPA. Public (no JWT) -- auth is enforced
 // client-side and on /api. Serves the exported per-route index.html files and
 // falls back to index.html so client-side routing still resolves unknown paths.
 func (s *Server) webuiHandler() http.Handler {
@@ -32,9 +32,9 @@ func (s *Server) webuiHandler() http.Handler {
 			p = "index.html"
 		}
 		// 1) exact file (assets: _next/*, favicon.ico, ...)
-		// 2) route dir → <p>/index.html (trailingSlash export)
+		// 2) route dir -> <p>/index.html (trailingSlash export)
 		// 3) <p>.html
-		// 4) SPA 兜底 → index.html（交给客户端路由）
+		// 4) SPA fallback -> index.html (handled by client-side routing)
 		for _, cand := range []string{p, p + "/index.html", p + ".html"} {
 			if serveFileIfExists(w, r, root, cand) {
 				return

@@ -53,14 +53,14 @@ tested AS (
 )`
 
 // scopeTargetCTE selects every asset that BELONGS to the current task's (and its
-// direct source tasks') declared scope — membership, not literal value: a
+// direct source tasks') declared scope -- membership, not literal value: a
 // root_domain scope pulls in every subdomain / service / endpoint whose own
 // root_domain column equals it; an ip/cidr scope pulls in assets whose ip OR
 // IP-literal host falls inside the net. $1 is the task id. Unlike contextCoverageCTE
-// it carries neither the fact-anchor union nor the tested set — it is pure "in
+// it carries neither the fact-anchor union nor the tested set -- it is pure "in
 // declared scope", independent of what has already been touched. Used by the
 // agent's list_assets so a query returns the task's relevant assets, not the
-// whole shared库.
+// whole shared library.
 const scopeTargetCTE = `
 context_tasks AS (
   SELECT t.id AS task_id

@@ -8,7 +8,7 @@ import (
 	"github.com/Autumn-27/norma/llm"
 )
 
-// 空转回合(仅思考、无正文无工具)的识别与续跑，见 steerHooks.Stop。
+// Detection and resumed running of idle turns (thinking only, no body text, no tools); see steerHooks.Stop.
 
 func assistantThinking(text string) llm.Message {
 	return llm.Message{Role: llm.RoleAssistant, Content: []llm.ContentBlock{
@@ -18,7 +18,7 @@ func assistantThinking(text string) llm.Message {
 
 func TestIsThinkingOnlyTurn(t *testing.T) {
 	toolUse := llm.Message{Role: llm.RoleAssistant, Content: []llm.ContentBlock{
-		{Type: llm.BlockThinking, Thinking: "先扫端口"},
+		{Type: llm.BlockThinking, Thinking: "Scan ports first"},
 		{Type: llm.BlockToolUse, ID: "t1", Name: "run_nuclei"},
 	}}
 	cases := []struct {
@@ -26,24 +26,24 @@ func TestIsThinkingOnlyTurn(t *testing.T) {
 		msgs []llm.Message
 		want bool
 	}{
-		{"仅思考", []llm.Message{llm.UserText("开始"), assistantThinking("想想")}, true},
-		{"思考+工具", []llm.Message{llm.UserText("开始"), toolUse}, false},
-		{"思考+正文", []llm.Message{assistantThinking("想想"), {
+		{"Thinking only", []llm.Message{llm.UserText("Start"), assistantThinking("Think")}, true},
+		{"Thinking+tools", []llm.Message{llm.UserText("Start"), toolUse}, false},
+		{"Thinking+body", []llm.Message{assistantThinking("Think"), {
 			Role:    llm.RoleAssistant,
-			Content: []llm.ContentBlock{{Type: llm.BlockThinking, Thinking: "x"}, llm.TextBlock("结论")},
+			Content: []llm.ContentBlock{{Type: llm.BlockThinking, Thinking: "x"}, llm.TextBlock("Conclusion")},
 		}}, false},
-		{"正文只有空白字符", []llm.Message{{
+		{"Body contains only whitespace", []llm.Message{{
 			Role:    llm.RoleAssistant,
 			Content: []llm.ContentBlock{{Type: llm.BlockThinking, Thinking: "x"}, llm.TextBlock("  \n ")},
 		}}, true},
-		{"完全空的 assistant 回合", []llm.Message{{Role: llm.RoleAssistant}}, true},
-		// 工具结果是 user 角色，判定必须回溯到它前面那条 assistant，而不是就近误判。
-		{"最后一条是工具结果", []llm.Message{toolUse, {
+		{"Completely empty assistant turn", []llm.Message{{Role: llm.RoleAssistant}}, true},
+		// Tool results carry the user role, so classification must trace back to the assistant message before it instead of misjudging by proximity.
+		{"Last message is a tool result", []llm.Message{toolUse, {
 			Role:    llm.RoleUser,
 			Content: []llm.ContentBlock{{Type: llm.BlockToolResult, ToolUseID: "t1"}},
 		}}, false},
-		{"没有 assistant 消息", []llm.Message{llm.UserText("开始")}, false},
-		{"空历史", nil, false},
+		{"No assistant message", []llm.Message{llm.UserText("Start")}, false},
+		{"Empty history", nil, false},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -54,7 +54,7 @@ func TestIsThinkingOnlyTurn(t *testing.T) {
 	}
 }
 
-// fakeHooks 是一个可编程的 inner HookRunner，用来验证 steerHooks 对 inner 决定的尊重。
+// fakeHooks is a programmable inner HookRunner used to verify that steerHooks respects inner's decisions.
 type fakeHooks struct {
 	prevent  bool
 	blocking []string
@@ -70,77 +70,77 @@ func (f fakeHooks) Stop(context.Context, []llm.Message) (bool, []string, string)
 }
 
 func TestSteerHooksStopNudgesEmptyTurn(t *testing.T) {
-	empty := []llm.Message{assistantThinking("我应该先枚举子域名")}
+	empty := []llm.Message{assistantThinking("I should enumerate subdomains first")}
 
-	t.Run("空转回合注入续跑指令", func(t *testing.T) {
+	t.Run("Empty turn injects a continuation directive", func(t *testing.T) {
 		h := steerHooks{nudges: &atomic.Int64{}, limit: defaultEmptyTurnNudges, label: "worker-1 · #1"}
 		prevent, blocking, _ := h.Stop(context.Background(), empty)
 		if prevent {
-			t.Fatal("空转回合不应硬停")
+			t.Fatal("Empty turns should not hard-stop")
 		}
 		if len(blocking) != 1 || blocking[0] != emptyTurnNudge {
 			t.Fatalf("blocking = %v, want [emptyTurnNudge]", blocking)
 		}
 	})
 
-	t.Run("有正文或工具时不介入", func(t *testing.T) {
+	t.Run("No intervention when body or tools present", func(t *testing.T) {
 		h := steerHooks{nudges: &atomic.Int64{}, limit: defaultEmptyTurnNudges}
 		normal := []llm.Message{{
 			Role:    llm.RoleAssistant,
-			Content: []llm.ContentBlock{llm.TextBlock("已完成扫描，未发现开放端口")},
+			Content: []llm.ContentBlock{llm.TextBlock("Scan completed; no open ports found")},
 		}}
 		if _, blocking, _ := h.Stop(context.Background(), normal); blocking != nil {
-			t.Fatalf("正常收场被误判为空转: %v", blocking)
+			t.Fatalf("A normal ending was misjudged as an empty turn: %v", blocking)
 		}
 		if n := h.nudges.Load(); n != 0 {
-			t.Fatalf("未介入时不应计数, got %d", n)
+			t.Fatalf("Should not count when not intervening, got %d", n)
 		}
 	})
 
-	t.Run("达到上限后放行收场", func(t *testing.T) {
-		const limit = 5 // 用户把「空响应重试次数」配成 5
+	t.Run("Let the ending through after hitting the limit", func(t *testing.T) {
+		const limit = 5 // User set the "empty-response retry count" to 5
 		h := steerHooks{nudges: &atomic.Int64{}, limit: limit}
 		for i := 1; i <= limit; i++ {
 			if _, blocking, _ := h.Stop(context.Background(), empty); len(blocking) != 1 {
-				t.Fatalf("第 %d 次应仍在配额内, blocking = %v", i, blocking)
+				t.Fatalf("Attempt %d should still be within quota, blocking = %v", i, blocking)
 			}
 		}
 		if _, blocking, _ := h.Stop(context.Background(), empty); blocking != nil {
-			t.Fatalf("超出上限仍在注入: %v", blocking)
+			t.Fatalf("Still injecting past the limit: %v", blocking)
 		}
 	})
 
-	// 「空响应重试次数」配 -1 = 关掉这层，emptyTurnNudgeLimit 解析成 0。
-	t.Run("配置关闭时不介入", func(t *testing.T) {
+	// "Empty-response retry count" set to -1 = disable this layer; emptyTurnNudgeLimit parses to 0.
+	t.Run("No intervention when the feature is off", func(t *testing.T) {
 		h := steerHooks{nudges: &atomic.Int64{}, limit: 0}
 		if _, blocking, _ := h.Stop(context.Background(), empty); blocking != nil {
-			t.Fatalf("已关闭仍在注入: %v", blocking)
+			t.Fatalf("Still injecting after close: %v", blocking)
 		}
 	})
 
-	t.Run("inner 决定硬停时不叠加", func(t *testing.T) {
-		h := steerHooks{inner: fakeHooks{prevent: true, msg: "guard 拒绝收场"}, nudges: &atomic.Int64{}, limit: defaultEmptyTurnNudges}
+	t.Run("No stacking when inner decides a hard stop", func(t *testing.T) {
+		h := steerHooks{inner: fakeHooks{prevent: true, msg: "guard rejected the ending"}, nudges: &atomic.Int64{}, limit: defaultEmptyTurnNudges}
 		prevent, blocking, msg := h.Stop(context.Background(), empty)
-		if !prevent || msg != "guard 拒绝收场" || blocking != nil {
-			t.Fatalf("inner 的硬停被改写: prevent=%v blocking=%v msg=%q", prevent, blocking, msg)
+		if !prevent || msg != "guard rejected the ending" || blocking != nil {
+			t.Fatalf("inner's hard stop was overwritten: prevent=%v blocking=%v msg=%q", prevent, blocking, msg)
 		}
 		if n := h.nudges.Load(); n != 0 {
-			t.Fatalf("让位给 inner 时不应消耗配额, got %d", n)
+			t.Fatalf("Should not consume quota when yielding to inner, got %d", n)
 		}
 	})
 
-	t.Run("inner 已要续跑时不叠加", func(t *testing.T) {
-		h := steerHooks{inner: fakeHooks{blocking: []string{"guard 的续跑理由"}}, nudges: &atomic.Int64{}, limit: defaultEmptyTurnNudges}
+	t.Run("No stacking when inner already wants to continue", func(t *testing.T) {
+		h := steerHooks{inner: fakeHooks{blocking: []string{"guard's continuation reason"}}, nudges: &atomic.Int64{}, limit: defaultEmptyTurnNudges}
 		_, blocking, _ := h.Stop(context.Background(), empty)
-		if len(blocking) != 1 || blocking[0] != "guard 的续跑理由" {
-			t.Fatalf("inner 的续跑消息被改写: %v", blocking)
+		if len(blocking) != 1 || blocking[0] != "guard's continuation reason" {
+			t.Fatalf("inner's continuation message was rewritten: %v", blocking)
 		}
 	})
 
-	t.Run("未装计数器时行为不变", func(t *testing.T) {
-		h := steerHooks{limit: defaultEmptyTurnNudges} // 例如未来其他调用点忘了传 nudges
+	t.Run("Behavior unchanged when no counter installed", func(t *testing.T) {
+		h := steerHooks{limit: defaultEmptyTurnNudges} // E.g. in case future call sites forget to pass nudges
 		if _, blocking, _ := h.Stop(context.Background(), empty); blocking != nil {
-			t.Fatalf("无计数器时不应注入: %v", blocking)
+			t.Fatalf("Should not inject without a counter: %v", blocking)
 		}
 	})
 }

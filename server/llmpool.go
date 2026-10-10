@@ -10,15 +10,15 @@ import (
 	"github.com/Autumn-27/norma/llm"
 )
 
-// LLM 轮询(故障转移)的服务端接线。设计见 docs/LLM轮询设计.md：
-//   - 全局激活配置这条路径(agent 未绑定、任务未 pin)才轮询;
-//   - 绑定/pin 的路径默认独占该配置,失败即失败(可由 llm_pool_bind_fallback 打开兜底);
-//   - 链序 = 激活配置 → 其余按 priority DESC,排除 pool_exclude 的;
-//   - 熔断状态进程级共享(s.llmHealth),重建 pool 不清空。
+// Server-side wiring for LLM polling (failover). See docs/LLMpolling design.md for the design:
+//   - Only the globally-activated-config path (agent unbound, task not pinned) polls;
+//   - A bound/pinned path exclusively uses that config by default; failure means failure (fallback can be enabled via llm_pool_bind_fallback);
+//   - Chain order = active config -> the rest by priority DESC, excluding pool_exclude ones;
+//   - Circuit-breaker state is shared process-wide (s.llmHealth); rebuilding the pool does not clear it.
 
 // newLLMHealthRegistry builds the process-wide circuit-breaker registry, mirroring
 // state into PG so a cooling-off window survives a restart. Writes are async and
-// best-effort — the in-memory copy is authoritative.
+// best-effort -- the in-memory copy is authoritative.
 func newLLMHealthRegistry(pg *db.DB) *llmpool.Registry {
 	if pg == nil {
 		return llmpool.NewRegistry(nil, nil)
@@ -31,7 +31,7 @@ func newLLMHealthRegistry(pg *db.DB) *llmpool.Registry {
 		}
 		go func() {
 			if err := pg.SaveLLMHealth(h); err != nil {
-				log.Printf("[llmpool] 熔断状态落库失败: %v", err)
+				log.Printf("[llmpool] failed to persist circuit-breaker state: %v", err)
 			}
 		}()
 	}
@@ -48,7 +48,7 @@ func newLLMHealthRegistry(pg *db.DB) *llmpool.Registry {
 				st.OpenUntil = *h.OpenUntil
 			}
 			reg.Restore(h.ProfileID, st)
-			log.Printf("[llmpool] 恢复熔断状态: 配置 #%d 冷却至 %s", h.ProfileID, st.OpenUntil.Format(time.RFC3339))
+			log.Printf("[llmpool] Restoring circuit-breaker state: config #%d cooling down until %s", h.ProfileID, st.OpenUntil.Format(time.RFC3339))
 		}
 	}
 	return reg
@@ -70,20 +70,20 @@ func (s *Server) poolMember(p *db.LLMProfile, rank int) *llmpool.Member {
 }
 
 // poolChain reads the failover chain from the DB. headID/headProv/headCfg describe
-// the member that must lead the chain — the globally active profile on the normal
+// the member that must lead the chain -- the globally active profile on the normal
 // path, or an explicitly bound one when bound-profile fallback is on. The head is
 // passed in (rather than resolved through the cache) so applyLLM's already-built
 // provider is reused instead of duplicated.
 //
 // Returns nil when failover is off or the chain has fewer than two usable members
-// — callers then use the bare provider, which is byte-for-byte the old behavior.
+// -- callers then use the bare provider, which is byte-for-byte the old behavior.
 func (s *Server) poolChain(headID int64, headProv llm.Provider, headCfg agent.Config) *llmpool.Pool {
 	if s.m == nil || s.m.pg == nil || !s.m.LLMPoolEnabled() {
 		return nil
 	}
 	profs, err := s.m.pg.PoolProfiles()
 	if err != nil {
-		log.Printf("[llmpool] 读取轮询链失败: %v", err)
+		log.Printf("[llmpool] Failed to read polling chain: %v", err)
 		return nil
 	}
 	var head *db.LLMProfile
@@ -93,7 +93,7 @@ func (s *Server) poolChain(headID int64, headProv llm.Provider, headCfg agent.Co
 			break
 		}
 	}
-	if head == nil { // head excluded from the chain (bound + pool_exclude) — still leads
+	if head == nil { // head excluded from the chain (bound + pool_exclude) -- still leads
 		if p, err := s.m.pg.ProfileByID(headID); err == nil && p != nil {
 			head = p
 		} else {
@@ -136,7 +136,7 @@ func (s *Server) poolForActive(activeID int64, prov llm.Provider, cfg agent.Conf
 	for _, m := range pool.Members() {
 		names = append(names, m.Name+"/"+m.Model)
 	}
-	log.Printf("[llmpool] LLM 轮询已启用，链路(%d): %v", len(names), names)
+	log.Printf("[llmpool] LLM polling enabled, links(%d): %v", len(names), names)
 	return pool
 }
 
@@ -162,7 +162,7 @@ type LLMPoolMemberStatus struct {
 	Format    string `json:"format"`
 	Priority  int    `json:"priority"`
 	Active    bool   `json:"active"`   // is the globally-activated profile
-	Excluded  bool   `json:"excluded"` // pool_exclude — not a failover target
+	Excluded  bool   `json:"excluded"` // pool_exclude -- not a failover target
 	// Health: state is "ok" | "degraded" (failing but not tripped) | "tripped".
 	State        string `json:"state"`
 	Fails        int    `json:"fails"`
@@ -193,7 +193,7 @@ func (s *Server) llmPoolStatus() map[string]any {
 	}
 	health := s.llmHealth.Snapshot()
 	now := time.Now()
-	// Chain order: active first, then priority DESC / id ASC — the same ordering
+	// Chain order: active first, then priority DESC / id ASC -- the same ordering
 	// PoolProfiles applies, recomputed here so excluded ones can be shown in place.
 	chain := make([]LLMPoolMemberStatus, 0, len(all))
 	for _, p := range all {

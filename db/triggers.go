@@ -21,13 +21,13 @@ type AgentTrigger struct {
 	OnTaskTimeout      bool       `json:"on_task_timeout"`
 	OnToolCall         bool       `json:"on_tool_call"`
 	OnTaskCreate       bool       `json:"on_task_create"`
-	IntervalMessage    string     `json:"interval_message"` // 各触发条件的独立用户消息
+	IntervalMessage    string     `json:"interval_message"` // Separate user message for each trigger condition
 	FindingMessage     string     `json:"finding_message"`
 	GoalMessage        string     `json:"goal_message"`
 	TaskTimeoutMessage string     `json:"task_timeout_message"`
 	ToolCallMessage    string     `json:"tool_call_message"`
 	TaskCreateMessage  string     `json:"task_create_message"`
-	ToolNames          []string   `json:"tool_names"` // 选中的工具 key 列表(DB 存 JSON 文本)
+	ToolNames          []string   `json:"tool_names"` // Selected tool key list (DB stores JSON text)
 	LastFire           *time.Time `json:"last_fire,omitempty"`
 }
 
@@ -157,13 +157,13 @@ type TaskEvent struct {
 	VulnClass  string `json:"vulnclass"`   // finding only
 	Severity   string `json:"severity"`    // finding only
 	Tool       string `json:"tool"`        // tool-call only: tool name
-	ToolInput  string `json:"tool_input"`  // tool-call only: 入参(JSON 文本)
-	ToolOutput string `json:"tool_output"` // tool-call only: 返回内容
-	ToolIsErr  bool   `json:"tool_is_err"` // tool-call only: 工具返回是否为错误
+	ToolInput  string `json:"tool_input"`  // tool-call only: input args (JSON text)
+	ToolOutput string `json:"tool_output"` // tool-call only: returned content
+	ToolIsErr  bool   `json:"tool_is_err"` // tool-call only: whether the tool return is an error
 }
 
 // NewFindingsSince returns findings with node id > lastID across all live tasks,
-// ordered by id (monotonic watermark → no double-fire).
+// ordered by id (monotonic watermark -> no double-fire).
 func (d *DB) NewFindingsSince(lastID int64) ([]TaskEvent, error) {
 	rows, err := d.Query(`
 SELECT n.id, t.id, t.description, t.goal, n.payload
@@ -190,7 +190,7 @@ ORDER BY n.id`, lastID)
 }
 
 // TimedOutTasksSince returns tasks that reached status='timeout' with id > lastID,
-// ordered by id (monotonic watermark → no double-fire across restarts).
+// ordered by id (monotonic watermark -> no double-fire across restarts).
 func (d *DB) TimedOutTasksSince(lastID int64) ([]TaskEvent, error) {
 	rows, err := d.Query(`
 SELECT id, description, goal FROM tasks
@@ -214,7 +214,7 @@ ORDER BY id`, lastID)
 }
 
 // NewTasksSince returns tasks created with id > lastID (excluding deleted),
-// ordered by id (monotonic watermark → no double-fire across restarts). Triggered
+// ordered by id (monotonic watermark -> no double-fire across restarts). Triggered
 // agent runs are conversations, not tasks, so this never fires on its own output.
 func (d *DB) NewTasksSince(lastID int64) ([]TaskEvent, error) {
 	rows, err := d.Query(`
@@ -239,10 +239,10 @@ ORDER BY id`, lastID)
 }
 
 // NewToolCallsSince returns completed tool calls (a tool_result row) with activity
-// id > lastID across all live tasks, ordered by id (monotonic watermark → no
+// id > lastID across all live tasks, ordered by id (monotonic watermark -> no
 // double-fire). It is driven by tool_result rows (the tool finished, so both input
 // and output are available) and joins back to the paired tool_use row for the input.
-// Only task-execution activity is scanned — triggered agent runs are conversations
+// Only task-execution activity is scanned -- triggered agent runs are conversations
 // (conversation_activities), so a tool-call trigger never fires on its own output.
 func (d *DB) NewToolCallsSince(lastID int64) ([]TaskEvent, error) {
 	rows, err := d.Query(`

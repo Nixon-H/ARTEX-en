@@ -18,7 +18,7 @@ type LogLine struct {
 	DBID  int64  `json:"db_id,omitempty"` // server_logs.id; 0 for pre-persistence entries
 	TS    string `json:"ts"`
 	Level string `json:"level"` // info | warn | error
-	Tag   string `json:"tag"`   // the leading [tag] (pg / planner / activity / …), if any
+	Tag   string `json:"tag"`   // the leading [tag] (pg / planner / activity / ...), if any
 	Text  string `json:"text"`
 }
 
@@ -63,7 +63,7 @@ func (s *logSinkT) SetDB(ctx context.Context, pg *db.DB) {
 		s.dbCh = ch
 		s.mu.Unlock()
 
-		// Restore last 100 rows from DB → prepend to ring as history context.
+		// Restore last 100 rows from DB -> prepend to ring as history context.
 		if logs, err := pg.RecentLogs(100); err == nil && len(logs) > 0 {
 			s.mu.Lock()
 			restored := make([]LogLine, 0, len(logs))
@@ -212,12 +212,12 @@ func parseLog(line string) LogLine {
 
 func levelOf(msg string) string {
 	low := strings.ToLower(msg)
-	for _, k := range []string{"fatal", "panic", "error", "err:", "失败", "丢弃", "拒绝", "✕", "不可达"} {
+	for _, k := range []string{"fatal", "panic", "error", "err:", "Failed", "Dropped", "Rejected", "✕", "Unreachable"} {
 		if strings.Contains(low, k) {
 			return "error"
 		}
 	}
-	for _, k := range []string{"warn", "disabled", "禁用", "skip", "stopped", "⚠", "重试"} {
+	for _, k := range []string{"warn", "disabled", "Disabled", "skip", "stopped", "⚠", "Retry"} {
 		if strings.Contains(low, k) {
 			return "warn"
 		}

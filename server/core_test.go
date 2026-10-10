@@ -16,11 +16,11 @@ import (
 )
 
 // TestCoreTaskLifecyclePG exercises the migrated core (tasks/exploration on PG)
-// through the real HTTP mux: create → goal nodes seeded → list → delete cascade.
+// through the real HTTP mux: create -> goal nodes seeded -> list -> delete cascade.
 func TestCoreTaskLifecyclePG(t *testing.T) {
 	m, err := NewManager(t.TempDir(), "")
 	if err != nil {
-		t.Skipf("postgres unavailable (%v) — skipping", err)
+		t.Skipf("postgres unavailable (%v) -- skipping", err)
 	}
 	defer m.Close()
 	td := t.TempDir()
@@ -61,8 +61,8 @@ func TestCoreTaskLifecyclePG(t *testing.T) {
 		return code, out
 	}
 
-	// create a task → 201, returns PG task (string id + exploration_id)
-	code, out := doRetry("POST", "/api/tasks", map[string]string{"description": "smoke", "goal": "测试 SQLi/XSS"})
+	// create a task -> 201, returns PG task (string id + exploration_id)
+	code, out := doRetry("POST", "/api/tasks", map[string]string{"description": "smoke", "goal": "Test SQLi/XSS"})
 	if code != 201 {
 		t.Fatalf("create task: %d (%v)", code, out)
 	}
@@ -72,7 +72,7 @@ func TestCoreTaskLifecyclePG(t *testing.T) {
 		t.Fatalf("bad task payload: %v", out)
 	}
 
-	// the exploration owns goal node(s) — goal seeding is async, poll briefly
+	// the exploration owns goal node(s) -- goal seeding is async, poll briefly
 	var goals []*db.Node
 	for i := 0; i < 30; i++ {
 		goals, err = m.pg.Exploration(expID).ListByKind("goal", 10)
@@ -105,7 +105,7 @@ func TestCoreTaskLifecyclePG(t *testing.T) {
 		t.Fatalf("engine mode mismatch: top=%v active_task=%v", out["engine_mode"], activeTask)
 	}
 
-	// delete → cascade removes the exploration subgraph and selected related data
+	// delete -> cascade removes the exploration subgraph and selected related data
 	taskDir := filepath.Join(m.dir, "tasks", id)
 	if err := os.MkdirAll(taskDir, 0o755); err != nil {
 		t.Fatal(err)

@@ -404,7 +404,7 @@ func recoverTaskArchiveStages(dataDir string, pg *pgdb.DB) error {
 		raw, err := os.ReadFile(filepath.Join(root, "journal.json"))
 		if os.IsNotExist(err) {
 			// Either staging died between creating the directory tree and writing the
-			// journal — no rename had run, so payload holds nothing — or commit/rollback
+			// journal -- no rename had run, so payload holds nothing -- or commit/rollback
 			// failed part-way through removing the root, in which case payload only holds
 			// copies already inside the package. Without a journal there is nothing to
 			// roll back, and reporting an error here keeps the archive worker from ever
@@ -503,7 +503,7 @@ func stageTaskArchivePackageDelete(archivePath string, archiveID int64) (string,
 	staged := archivePath + fmt.Sprintf(".deleting-%d", archiveID)
 	if _, err := os.Lstat(staged); err == nil {
 		if _, originalErr := os.Lstat(archivePath); originalErr == nil {
-			return staged, false, errors.New("归档包原文件和删除暂存文件同时存在")
+			return staged, false, errors.New("Both the archive source file and the deleted staging file exist")
 		} else if !os.IsNotExist(originalErr) {
 			return staged, false, originalErr
 		}
@@ -578,10 +578,10 @@ func writeTaskArchivePackage(path, payloadDir string, snapshot *pgdb.TaskArchive
 			return err
 		}
 		if info.Mode()&os.ModeSymlink != 0 {
-			// 归档格式端到端只支持普通文件与目录（解包端对其它类型直接报错），
-			// 无法还原符号链接。跳过而非整包失败：不读取链接目标(lstat，不越出目录树)，
-			// 也不写入 symlink 条目；链接指向树内时目标文件本身仍会被单独遍历归档。
-			log.Printf("[task-archive] 跳过符号链接（归档不支持，不影响其它文件）：%s", current)
+			// The archive format supports only regular files and directories end to end (the unpacking side errors directly on other types), and symlinks cannot be restored.
+			// Cannot restore symbolic links. Skip instead of failing the whole package: do not read link targets (lstat, do not escape the directory tree),
+			// Nor write symlink entries; when a link points inside the tree, the target file itself is still traversed and archived separately.
+			log.Printf("[task-archive] skipping symlink (archiving not supported, does not affect other files): %s", current)
 			return nil
 		}
 		header, err := tar.FileInfoHeader(info, "")

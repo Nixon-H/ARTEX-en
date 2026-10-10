@@ -39,7 +39,7 @@ func TestFindingPaginationParam(t *testing.T) {
 func TestFindingGroupsReturnsTaskBucketsAndNormalizesPagination(t *testing.T) {
 	m, err := NewManager(t.TempDir(), "")
 	if err != nil {
-		t.Skipf("postgres unavailable (%v) — skipping", err)
+		t.Skipf("postgres unavailable (%v) -- skipping", err)
 	}
 	defer m.Close()
 	marker := fmt.Sprintf("__server_finding_groups_%d__", time.Now().UnixNano())
@@ -149,7 +149,7 @@ func TestFindingGroupsReturnsTaskBucketsAndNormalizesPagination(t *testing.T) {
 func TestDeepenFindingCreatesAuditedIntentAndRevivesTask(t *testing.T) {
 	m, err := NewManager(t.TempDir(), "")
 	if err != nil {
-		t.Skipf("postgres unavailable (%v) — skipping", err)
+		t.Skipf("postgres unavailable (%v) -- skipping", err)
 	}
 	defer m.Close()
 
@@ -178,7 +178,7 @@ func TestDeepenFindingCreatesAuditedIntentAndRevivesTask(t *testing.T) {
 	s := &Server{m: m, engine: NewEngine(m), ctx: ctx}
 	live, unsubscribe := s.engine.Broadcaster().Subscribe(task.ID)
 	defer unsubscribe()
-	body := bytes.NewBufferString(`{"description":"验证完整利用链并保留可复现证据"}`)
+	body := bytes.NewBufferString(`{"description":"Verify the full exploit chain and preserve reproducible evidence"}`)
 	req := httptest.NewRequest(http.MethodPost, "/api/exploration/findings/1/deepen", body)
 	req.SetPathValue("id", strconv.FormatInt(findingID, 10))
 	rec := httptest.NewRecorder()
@@ -216,7 +216,7 @@ func TestDeepenFindingCreatesAuditedIntentAndRevivesTask(t *testing.T) {
 	var persistedAudit db.Activity
 	auditCount := 0
 	for _, item := range activity {
-		if item.Worker == "system" && strings.Contains(item.Summary, "人工提交漏洞深入利用意图") {
+		if item.Worker == "system" && strings.Contains(item.Summary, "manually submitted vulnerability deep-exploitation intent") {
 			persistedAudit = item
 			auditCount++
 		}

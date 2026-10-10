@@ -6,13 +6,13 @@ import (
 )
 
 // A profile's retry override must survive a full round trip through the real
-// column list — this is what catches a mis-ordered scan/insert after adding six
+// column list -- this is what catches a mis-ordered scan/insert after adding six
 // columns at once. Also pins the "empty api key on update keeps the row usable"
 // path, since that UPDATE has its own parameter numbering.
 func TestProfileRetryRoundTrip(t *testing.T) {
 	d, err := Open(testDSN(t))
 	if err != nil {
-		t.Skipf("postgres unavailable (%v) — skipping", err)
+		t.Skipf("postgres unavailable (%v) -- skipping", err)
 	}
 	defer d.Close()
 
@@ -52,7 +52,7 @@ func TestProfileRetryRoundTrip(t *testing.T) {
 	if after.Retry.Connect != want.Connect || after.Retry.Empty != want.Empty {
 		t.Fatalf("untouched rules changed: %+v", after.Retry)
 	}
-	// The listing query reads a different column list — it must agree.
+	// The listing query reads a different column list -- it must agree.
 	profiles, err := d.ListProfiles()
 	if err != nil {
 		t.Fatal(err)
@@ -69,7 +69,7 @@ func TestProfileRetryRoundTrip(t *testing.T) {
 func TestProfileRetryClampedOnSave(t *testing.T) {
 	d, err := Open(testDSN(t))
 	if err != nil {
-		t.Skipf("postgres unavailable (%v) — skipping", err)
+		t.Skipf("postgres unavailable (%v) -- skipping", err)
 	}
 	defer d.Close()
 
@@ -95,7 +95,7 @@ func TestProfileRetryClampedOnSave(t *testing.T) {
 func TestLLMRetryPolicyRoundTrip(t *testing.T) {
 	d, err := Open(testDSN(t))
 	if err != nil {
-		t.Skipf("postgres unavailable (%v) — skipping", err)
+		t.Skipf("postgres unavailable (%v) -- skipping", err)
 	}
 	defer d.Close()
 
@@ -127,7 +127,7 @@ func TestLLMRetryPolicyRoundTrip(t *testing.T) {
 		t.Fatalf("breaker interval=%v, want 90s", d)
 	}
 
-	// 越界值写进去也会被夹回区间，读出来是夹紧后的值。
+	// Out-of-range values written in are clamped back into range; what is read out is the clamped value.
 	if err := d.SetLLMRetryPolicy(LLMRetryPolicy{Stream: RetryRule{Attempts: 999, IntervalMS: 99_999_999}}); err != nil {
 		t.Fatal(err)
 	}
@@ -135,7 +135,7 @@ func TestLLMRetryPolicyRoundTrip(t *testing.T) {
 		t.Fatalf("stream=%+v, want the 20 / 1h caps", got)
 	}
 
-	// 键不存在 = 全默认。
+	// Missing key = all defaults.
 	if _, err := d.Exec(`DELETE FROM settings WHERE key=$1`, settingLLMRetryPolicy); err != nil {
 		t.Fatal(err)
 	}

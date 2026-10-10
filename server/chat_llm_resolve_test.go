@@ -14,7 +14,7 @@ import (
 func TestChatUnavailableReasonDistinguishesStates(t *testing.T) {
 	m, err := NewManager(t.TempDir(), "")
 	if err != nil {
-		t.Skipf("postgres unavailable (%v) — skipping", err)
+		t.Skipf("postgres unavailable (%v) -- skipping", err)
 	}
 	defer m.Close()
 	td := t.TempDir()
@@ -30,8 +30,8 @@ func TestChatUnavailableReasonDistinguishesStates(t *testing.T) {
 		_ = m.pg.DeleteProfile(p.ID)
 	}
 
-	if reason := s.chatUnavailableReason(); !strings.Contains(reason, "尚未配置") {
-		t.Fatalf("no-profile reason=%q, want 尚未配置", reason)
+	if reason := s.chatUnavailableReason(); !strings.Contains(reason, "Not configured yet") {
+		t.Fatalf("no-profile reason=%q, want not configured yet", reason)
 	}
 
 	id, err := m.pg.SaveProfile(&db.LLMProfile{Name: "p1", Format: "anthropic", Model: "claude-x", APIKey: "sk-test"})
@@ -44,15 +44,15 @@ func TestChatUnavailableReasonDistinguishesStates(t *testing.T) {
 	})
 
 	// Profile exists but is not activated.
-	if reason := s.chatUnavailableReason(); !strings.Contains(reason, "没有已激活") {
-		t.Fatalf("inactive reason=%q, want 没有已激活", reason)
+	if reason := s.chatUnavailableReason(); !strings.Contains(reason, "None activated") {
+		t.Fatalf("inactive reason=%q, want none activated", reason)
 	}
 
 	// Once activated, the reason no longer claims a missing/inactive config.
 	if err := m.pg.SetActiveProfile(id); err != nil {
 		t.Fatal(err)
 	}
-	if reason := s.chatUnavailableReason(); strings.Contains(reason, "尚未配置") || strings.Contains(reason, "没有已激活") {
+	if reason := s.chatUnavailableReason(); strings.Contains(reason, "Not configured yet") || strings.Contains(reason, "None activated") {
 		t.Fatalf("active reason=%q should not report missing/inactive", reason)
 	}
 }
@@ -60,18 +60,18 @@ func TestChatUnavailableReasonDistinguishesStates(t *testing.T) {
 // TestResolveChatAgentHonoursConversationProfile is the regression guard for the
 // reported bug: a conversation that picked a valid profile must resolve a chat
 // agent even when NO global profile is active, so the send precheck stops
-// rejecting it with "LLM 未配置".
+// rejecting it with "LLM not configured".
 func TestResolveChatAgentHonoursConversationProfile(t *testing.T) {
 	m, err := NewManager(t.TempDir(), "")
 	if err != nil {
-		t.Skipf("postgres unavailable (%v) — skipping", err)
+		t.Skipf("postgres unavailable (%v) -- skipping", err)
 	}
 	defer m.Close()
 	td := t.TempDir()
 	s := New(context.Background(), m, td, td, td)
 
 	// Force the global fallback to nil so a non-nil result can ONLY come from the
-	// conversation's own profile — this is exactly the situation the user hit
+	// conversation's own profile -- this is exactly the situation the user hit
 	// (no usable global config) and isolates the fix from the test host's env.
 	s.cfgMu.Lock()
 	s.chatAgent = nil
