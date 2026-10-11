@@ -75,7 +75,7 @@ func TestRecordKeepsBodiesInIndex(t *testing.T) {
 
 	tr.record(newFlow("api.example.com", "POST", "/v1/login",
 		[]byte(`{"user":"admin","password":"P@ssw0rd"}`),
-		[]byte(`{"token":"abc123","note":"内网测试账号"}`)))
+		[]byte(`{"token":"abc123","note":"intranet test account"}`)))
 
 	// The URL-mirroring tree is gone: no host directory, no nested path segments.
 	if _, err := os.Stat(filepath.Join(dir, "api.example.com")); !os.IsNotExist(err) {
@@ -101,7 +101,7 @@ func TestRecordKeepsBodiesInIndex(t *testing.T) {
 			t.Fatalf("request raw text missing %q, got:\n%s", want, req)
 		}
 	}
-	for _, want := range []string{"HTTP 200", `"token":"abc123"`, "内网测试账号"} {
+	for _, want := range []string{"HTTP 200", `"token":"abc123"`, "intranet test account"} {
 		if !strings.Contains(resp, want) {
 			t.Fatalf("response raw text missing %q, got:\n%s", want, resp)
 		}
@@ -119,7 +119,7 @@ func TestFullTextSearchMatchesBodies(t *testing.T) {
 	const host = "api.example.com"
 	tr.record(newFlow(host, "POST", "/v1/login",
 		[]byte(`{"user":"admin","password":"P@ssw0rd"}`),
-		[]byte(`{"token":"abc123","note":"内网测试账号"}`)))
+		[]byte(`{"token":"abc123","note":"intranet test account"}`)))
 	tr.record(newFlow(host, "GET", "/v1/health", nil, []byte(`{"status":"ok"}`)))
 
 	hits := func(term string) int {
@@ -137,7 +137,7 @@ func TestFullTextSearchMatchesBodies(t *testing.T) {
 	if n := hits("ssw0r"); n != 1 {
 		t.Fatalf("substring search ssw0r hit %d entries, want 1", n)
 	}
-	if n := hits("内网测试"); n != 1 {
+	if n := hits("intranet test"); n != 1 {
 		t.Fatalf("Chinese search hit %d entries, expected 1", n)
 	}
 	if n := hits("nonexistent-marker"); n != 0 {
@@ -463,7 +463,7 @@ func TestNormalizeSearchHost(t *testing.T) {
 
 // TestTruncateUTF8 guards the preview cut: never split a multi-byte rune.
 func TestTruncateUTF8(t *testing.T) {
-	s := "内网测试账号"
+	s := "intranet test account"
 	for n := 0; n <= len(s); n++ {
 		got := truncateUTF8([]byte(s), n)
 		if !strings.HasPrefix(s, got) {

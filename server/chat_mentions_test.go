@@ -207,7 +207,7 @@ func TestChatMentionWorkerReceivesServerDetails(t *testing.T) {
 }
 
 func TestChatMentionBoundedJSON(t *testing.T) {
-	long := strings.Repeat("en", 10000)
+	long := strings.Repeat("\u20ac\u20ac", 10000)
 	items := make([]any, 102)
 	for i := range items {
 		items[i] = long

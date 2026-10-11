@@ -1277,7 +1277,7 @@ func skillNameFromFrontmatter(md []byte) string {
 		}
 		if inFM && strings.HasPrefix(t, "name:") {
 			v := strings.TrimSpace(strings.TrimPrefix(t, "name:"))
-			return strings.Trim(v, `"'`) // name: "中文技能" is accepted as-is
+			return strings.Trim(v, `"'`) // name: "démonstration" is accepted as-is
 		}
 	}
 	return ""

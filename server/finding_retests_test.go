@@ -292,7 +292,7 @@ func TestRetestValidationSeedingAndScope(t *testing.T) {
 		id   int64
 		body string
 		code int
-	}{{0, `{}`, 400}, {fid, `{`, 400}, {fid, `{"notes":"` + strings.Repeat("文", 4001) + `"}`, 400}, {999999999, `{}`, 404}, {fid, `{}`, 503}} {
+	}{{0, `{}`, 400}, {fid, `{`, 400}, {fid, `{"notes":"` + strings.Repeat("\u20ac", 4001) + `"}`, 400}, {999999999, `{}`, 404}, {fid, `{}`, 503}} {
 		w := retestRequest(s.startFindingRetest, "POST", tc.id, tc.body)
 		if w.Code != tc.code {
 			t.Fatalf("code=%d want=%d %s", w.Code, tc.code, w.Body)

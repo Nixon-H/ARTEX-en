@@ -152,12 +152,12 @@ func ParseAutoScopeLine(line string) (ParsedScope, error) {
 	if looksLikeDomain {
 		return ParseScopeLine(raw)
 	}
-	// A filing number (ICP) itself contains no dots (e.g. 京ICP备12345678号-1). Dotted text is mostly mixed with domains or version numbers,
+	// A filing number (ICP) itself contains no dots (e.g. Jing ICP Filing No. 12345678-1). Dotted text is mostly mixed with domains or version numbers,
 	// saving it as ICP would only produce a dead rule that never matches any asset -- ICP attribution uses exact
 	// equality comparison (see the kind='icp' attribution query in companies.go), so such text is classified as keywords.
 	lower := strings.ToLower(raw)
 	if !strings.ContainsAny(raw, ".．。") &&
-		(strings.Contains(lower, "icp") || strings.Contains(raw, "备案")) {
+		(strings.Contains(lower, "icp") || strings.Contains(raw, "\u5907\u6848")) { // \u5907\u6848 = Chinese filing keyword (escaped to keep the repo ASCII-only)
 		return ParseScopeInput(ScopeInput{Kind: "icp", Value: raw})
 	}
 	return ParseScopeInput(ScopeInput{Kind: "keyword", Value: raw})

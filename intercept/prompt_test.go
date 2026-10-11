@@ -68,7 +68,7 @@ func TestParseVerdictKeepsCompleteExplanation(t *testing.T) {
 	if got := ParseVerdict(string(raw)); got.Reason != reason {
 		t.Fatal("explanation was truncated or lost its rule")
 	}
-	raw, _ = json.Marshal(map[string]string{"decision": "allow", "comment": strings.Repeat("en", 2401)})
+	raw, _ = json.Marshal(map[string]string{"decision": "allow", "comment": strings.Repeat("\u20ac\u20ac", 2401)})
 	if got := ParseVerdict(string(raw)); got.Action != "" {
 		t.Fatal("accepted unbounded explanation")
 	}

@@ -82,7 +82,7 @@ func TestReclaimMergesFTSTombstones(t *testing.T) {
 		host := fmt.Sprintf("fts%d.example.com", round)
 		for i := 0; i < 20; i++ {
 			tr.record(newFlow(host, "GET", fmt.Sprintf("/p/%d", i), nil,
-				[]byte(strings.Repeat("secret token 中文正文 padding ", 200))))
+				[]byte(strings.Repeat("secret token padding body text ", 200))))
 		}
 		if _, err := tr.DeleteHostsExact([]string{host}); err != nil {
 			t.Fatal(err)

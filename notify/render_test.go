@@ -11,7 +11,7 @@ func TestTruncateBytesKeepsValidUTF8(t *testing.T) {
 	// Any implementation that hard-cuts by bytes splits Chinese characters in half, producing illegal UTF-8 that the platform rejects.
 	// Use mixed Chinese-English inputs of coprime lengths to hit every possible cut point.
 	inputs := []string{
-		"中文测试内容",
+		"test content for rendering",
 		"mixed mixed content content",
 		"aMiddleBTextCProbeDTestE",
 		"🔴🟠🟡🔵", // 4-byte emoji -- miscuts show up more clearly

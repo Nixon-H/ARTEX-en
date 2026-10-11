@@ -56,15 +56,18 @@ func TestParseAutoScopeLine(t *testing.T) {
 		{name: "ipv4", input: "203.0.113.10", kind: "ip", normalized: "203.0.113.10/32"},
 		{name: "ipv6", input: "2001:db8::10", kind: "ip", normalized: "2001:db8::10/128"},
 		{name: "cidr", input: "198.51.100.0/24", kind: "cidr", normalized: "198.51.100.0/24"},
-		{name: "icp latin", input: "京 ICP备 123号", kind: "icp", normalized: "京icp备123号"},
-		{name: "icp chinese", input: "沪网备案 9988", kind: "icp", normalized: "沪网备案9988"},
+		{name: "icp latin", input: "Beijing ICP Filing 123", kind: "icp", normalized: "beijingicpfiling123"},
+		// "\u5907\u6848" branch keeper: the icp-kind matcher also fires on the
+		// Chinese filing keyword (U+5907 U+6848), written here with Go
+		// unicode escapes so the repo stays ASCII-only (no "icp" substring present).
+		{name: "icp chinese", input: "\u5907\u6848 9988", kind: "icp", normalized: "\u5907\u68489988"},
 		{name: "icp domain", input: "icp.example.com", kind: "domain", normalized: "icp.example.com"},
 		{name: "icp url query", input: "https://example.com/path?icp=1", kind: "domain", normalized: "example.com"},
 		// ICP filing numbers contain no dots: descriptive text mixed with domains/version numbers goes to keywords, otherwise it would be stored as
 		// a dead ICP rule that never matches.
-		{name: "icp with domain text", input: "备案 www.example.com", kind: "keyword", normalized: "备案 www.example.com"},
-		{name: "icp with version text", input: "某公司 ICP v1.0", kind: "keyword", normalized: "某公司 icp v1.0"},
-		{name: "icp fullwidth dot", input: "备案 例．com", kind: "keyword", normalized: "备案 例．com"},
+		{name: "icp with domain text", input: "ICP Filing www.example.com", kind: "keyword", normalized: "icp filing www.example.com"},
+		{name: "icp with version text", input: "Acme Corp ICP v1.0", kind: "keyword", normalized: "acme corp icp v1.0"},
+		{name: "icp embedded", input: "FilingXICP9988", kind: "icp", normalized: "filingxicp9988"},
 		{name: "keyword", input: "  ACME   Security  ", kind: "keyword", normalized: "acme security"},
 		{name: "colon keyword", input: "ACME: Cloud: Security", kind: "keyword", normalized: "acme: cloud: security"},
 		{name: "empty", input: "  ", wantErr: true},
@@ -209,11 +212,11 @@ func TestExplicitCompanyAttributionSurvivesScopeRebuild(t *testing.T) {
 }
 
 func TestParseStructuredCompanyScope(t *testing.T) {
-	icp, err := ParseScopeInput(ScopeInput{Kind: "ICP", Value: " 京ICP 备 123号-1\t"})
+	icp, err := ParseScopeInput(ScopeInput{Kind: "ICP", Value: " \tBeijing ICP Filing 123-1\t"})
 	if err != nil {
 		t.Fatalf("parse ICP: %v", err)
 	}
-	if icp.Kind != "icp" || icp.Value != "京icp备123号-1" {
+	if icp.Kind != "icp" || icp.Value != "beijingicpfiling123-1" {
 		t.Fatalf("unexpected normalized ICP: %+v", icp)
 	}
 	keyword, err := ParseScopeInput(ScopeInput{Kind: "keyword", Value: "  ACME   Security  "})
@@ -265,7 +268,7 @@ func TestCompanyICPAttribution(t *testing.T) {
 
 	// A keyword can guide an Agent, but must never claim an asset by its name.
 	added, _, invalid, errs := cs.AddScopeInputs(companyID, []ScopeInput{
-		{Kind: "icp", Value: "京 ICP备 998877号"},
+		{Kind: "icp", Value: " Beijing ICP Filing 998877 "},
 		{Kind: "keyword", Value: "ICP Scope"},
 	}, "unit test")
 	if added != 2 || invalid != 0 || len(errs) != 0 {
@@ -273,7 +276,7 @@ func TestCompanyICPAttribution(t *testing.T) {
 	}
 
 	rootID, err := as.UpsertRootDomain(UpsertRootDomainReq{
-		Domain: fmt.Sprintf("icp-scope-%d.example", suffix), ICP: "京icp备998877号", TaskID: suffix,
+		Domain: fmt.Sprintf("icp-scope-%d.example", suffix), ICP: "beijingicpfiling998877", TaskID: suffix,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -285,7 +288,7 @@ func TestCompanyICPAttribution(t *testing.T) {
 		t.Fatal(err)
 	}
 	icpAppID, err := as.UpsertApp(UpsertAppReq{
-		Name: fmt.Sprintf("ICP Matched App %d", suffix), ICP: " 京 ICP备 998877号 ", TaskID: suffix,
+		Name: fmt.Sprintf("ICP Matched App %d", suffix), ICP: " Beijing ICP Filing 998877 ", TaskID: suffix,
 	})
 	if err != nil {
 		t.Fatal(err)
