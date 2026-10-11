@@ -1,6 +1,10 @@
 package db
 
-import "testing"
+import (
+	"fmt"
+	"testing"
+	"time"
+)
 
 // TestProfileMaxTokensRoundTrip pins the output-cap columns through the whole
 // read/write surface: both column lists (list vs keyed loads) must carry them,
@@ -84,7 +88,7 @@ func TestProfileMaxTokensDefaults(t *testing.T) {
 	// would then run against a closed pool and silently leave test rows behind.
 	t.Cleanup(func() { d.Close() })
 
-	id, err := d.SaveProfile(&LLMProfile{Name: "t-maxtok-default", Format: "openai", Model: "m", APIKey: "k"})
+	id, err := d.SaveProfile(&LLMProfile{Name: "t-maxtok-default-" + fmt.Sprint(time.Now().UnixNano()), Format: "openai", Model: "m", APIKey: "k"})
 	if err != nil {
 		t.Fatal(err)
 	}

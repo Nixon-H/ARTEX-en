@@ -1,6 +1,7 @@
 package db
 
 import (
+	"fmt"
 	"testing"
 	"time"
 )
@@ -22,7 +23,7 @@ func TestProfileRetryRoundTrip(t *testing.T) {
 		Stream:  RetryRule{IntervalMS: 250},
 	}
 	id, err := d.SaveProfile(&LLMProfile{
-		Name: "t-retry-roundtrip", Format: "openai", Model: "m", APIKey: "k", Retry: want,
+		Name: "t-retry-roundtrip-" + fmt.Sprint(time.Now().UnixNano()), Format: "openai", Model: "m", APIKey: "k", Retry: want,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -74,7 +75,7 @@ func TestProfileRetryClampedOnSave(t *testing.T) {
 	defer d.Close()
 
 	id, err := d.SaveProfile(&LLMProfile{
-		Name: "t-retry-clamp", Format: "openai", Model: "m", APIKey: "k",
+		Name: "t-retry-clamp-" + fmt.Sprint(time.Now().UnixNano()), Format: "openai", Model: "m", APIKey: "k",
 		Retry: RetryOverride{Connect: RetryRule{Attempts: -99, IntervalMS: -5}},
 	})
 	if err != nil {

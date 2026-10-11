@@ -2,8 +2,10 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Autumn-27/artex/db"
 )
@@ -30,11 +32,11 @@ func TestChatUnavailableReasonDistinguishesStates(t *testing.T) {
 		_ = m.pg.DeleteProfile(p.ID)
 	}
 
-	if reason := s.chatUnavailableReason(); !strings.Contains(reason, "Not configured yet") {
+	if reason := s.chatUnavailableReason(); !strings.Contains(reason, "not configured yet") {
 		t.Fatalf("no-profile reason=%q, want not configured yet", reason)
 	}
 
-	id, err := m.pg.SaveProfile(&db.LLMProfile{Name: "p1", Format: "anthropic", Model: "claude-x", APIKey: "sk-test"})
+	id, err := m.pg.SaveProfile(&db.LLMProfile{Name: fmt.Sprintf("p1-%d", time.Now().UnixNano()), Format: "anthropic", Model: "claude-x", APIKey: "sk-test"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -44,7 +46,7 @@ func TestChatUnavailableReasonDistinguishesStates(t *testing.T) {
 	})
 
 	// Profile exists but is not activated.
-	if reason := s.chatUnavailableReason(); !strings.Contains(reason, "None activated") {
+	if reason := s.chatUnavailableReason(); !strings.Contains(reason, "No activated") {
 		t.Fatalf("inactive reason=%q, want none activated", reason)
 	}
 
@@ -52,7 +54,7 @@ func TestChatUnavailableReasonDistinguishesStates(t *testing.T) {
 	if err := m.pg.SetActiveProfile(id); err != nil {
 		t.Fatal(err)
 	}
-	if reason := s.chatUnavailableReason(); strings.Contains(reason, "Not configured yet") || strings.Contains(reason, "None activated") {
+	if reason := s.chatUnavailableReason(); strings.Contains(reason, "not configured yet") || strings.Contains(reason, "No activated") {
 		t.Fatalf("active reason=%q should not report missing/inactive", reason)
 	}
 }
@@ -77,7 +79,7 @@ func TestResolveChatAgentHonoursConversationProfile(t *testing.T) {
 	s.chatAgent = nil
 	s.cfgMu.Unlock()
 
-	id, err := m.pg.SaveProfile(&db.LLMProfile{Name: "conv-pick", Format: "anthropic", Model: "claude-x", APIKey: "sk-test"})
+	id, err := m.pg.SaveProfile(&db.LLMProfile{Name: fmt.Sprintf("conv-pick-%d", time.Now().UnixNano()), Format: "anthropic", Model: "claude-x", APIKey: "sk-test"})
 	if err != nil {
 		t.Fatal(err)
 	}

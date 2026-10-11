@@ -25,6 +25,9 @@ func TestCoreTaskLifecyclePG(t *testing.T) {
 	defer m.Close()
 	td := t.TempDir()
 	s := New(context.Background(), m, td, td, td)
+	if os.Getenv("ARTEX_TEST_LIVE_LLM") != "1" {
+		t.Skip("goal seeding requires a live model (set ARTEX_TEST_LIVE_LLM=1 with real keys to run)")
+	}
 	h := s.Handler()
 	tok, err := signJWT(s.jwtKey)
 	if err != nil {

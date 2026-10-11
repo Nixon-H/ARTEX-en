@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"testing"
+	"time"
 )
 
 // TestPoolProfilesOrder pins the failover chain query: keyless profiles can't
@@ -30,10 +32,11 @@ func TestPoolProfilesOrder(t *testing.T) {
 		t.Cleanup(func() { d.Exec(`DELETE FROM llm_profiles WHERE id=$1`, id) })
 		return id
 	}
-	lo := mk("t-pool-lo", 1, false, "k1")
-	hi := mk("t-pool-hi", 9, false, "k2")
-	mk("t-pool-excluded", 99, true, "k3") // excluded despite the top priority
-	mk("t-pool-nokey", 50, false, "")     // no key -> cannot serve anything
+	uniq := fmt.Sprintf("-%d", time.Now().UnixNano())
+	lo := mk("t-pool-lo"+uniq, 1, false, "k1")
+	hi := mk("t-pool-hi"+uniq, 9, false, "k2")
+	mk("t-pool-excluded"+uniq, 99, true, "k3") // excluded despite the top priority
+	mk("t-pool-nokey"+uniq, 50, false, "")     // no key -> cannot serve anything
 
 	chain, err := d.PoolProfiles()
 	if err != nil {
@@ -42,11 +45,11 @@ func TestPoolProfilesOrder(t *testing.T) {
 	var got []int64
 	for _, p := range chain {
 		switch p.Name {
-		case "t-pool-lo", "t-pool-hi":
+		case "t-pool-lo" + uniq, "t-pool-hi" + uniq:
 			got = append(got, p.ID)
-		case "t-pool-excluded":
+		case "t-pool-excluded" + uniq:
 			t.Fatal("pool_exclude profile entered the failover chain")
-		case "t-pool-nokey":
+		case "t-pool-nokey" + uniq:
 			t.Fatal("keyless profile entered the failover chain")
 		}
 	}
@@ -72,7 +75,7 @@ func TestConfigStores(t *testing.T) {
 	defer d.Close()
 
 	// LLM profile: save, active, key never serialized
-	pid, err := d.SaveProfile(&LLMProfile{Name: "t-default", Format: "openai", Model: "gpt-x", APIKey: "secret123"})
+	pid, err := d.SaveProfile(&LLMProfile{Name: "t-default-" + fmt.Sprint(time.Now().UnixNano()), Format: "openai", Model: "gpt-x", APIKey: "secret123"})
 	if err != nil {
 		t.Fatal(err)
 	}
