@@ -350,7 +350,7 @@ func TestNotifyChannelAPICreateValidation(t *testing.T) {
 		{"Invalid type", map[string]any{"name": "x", "kind": "nope", "config": map[string]any{}}, "Channel type invalid"},
 		{"Missing name", map[string]any{"kind": notify.KindDingTalk, "config": map[string]any{"webhook": "https://e.com/h"}}, "Missing channel name"},
 		{"Missing webhook", map[string]any{"name": "x", "kind": notify.KindDingTalk, "config": map[string]any{}}, "Webhook"},
-		{"webhook protocol illegal", map[string]any{"name": "x", "kind": notify.KindDingTalk, "config": map[string]any{"webhook": "file:///etc/passwd"}}, "Webhook address invalid"},
+		{"webhook protocol illegal", map[string]any{"name": "x", "kind": notify.KindDingTalk, "config": map[string]any{"webhook": "file:///etc/passwd"}}, "Invalid Webhook URL"},
 		{"Invalid mode", map[string]any{"name": "x", "kind": notify.KindDingTalk, "mode": "sometimes", "config": map[string]any{"webhook": "https://e.com/h"}}, "Invalid push mode"},
 	}
 	for _, tc := range cases {
@@ -776,7 +776,7 @@ func TestNotifyDigestSegmentsAndDefersRemainder(t *testing.T) {
 		t.Fatalf("Item count mismatch: sent=%d pending=%d total=%d (neither delivered nor pending = lost)", sent, pending, total)
 	}
 	// The message body must truthfully state how many more entries are not included in this one.
-	if text := markdownText(t, hook.last(t)); !strings.Contains(text, "Remaining") {
+	if text := markdownText(t, hook.last(t)); !strings.Contains(text, "remaining") {
 		t.Fatalf("Message should state that some entries are not included in this one:\n%.400s", text)
 	}
 

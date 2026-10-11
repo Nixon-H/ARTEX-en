@@ -216,7 +216,7 @@ func TestDeepenFindingCreatesAuditedIntentAndRevivesTask(t *testing.T) {
 	var persistedAudit db.Activity
 	auditCount := 0
 	for _, item := range activity {
-		if item.Worker == "system" && strings.Contains(item.Summary, "manually submitted vulnerability deep-exploitation intent") {
+		if item.Worker == "system" && strings.Contains(item.Summary, "Manually submitted vulnerability deep-exploitation intent") {
 			persistedAudit = item
 			auditCount++
 		}
