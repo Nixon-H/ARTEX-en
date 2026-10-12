@@ -452,17 +452,6 @@ The attack chain thus keeps **advancing steadily, without duplication or misorde
 
 ---
 
-## Community
-
-Scan the QR code to follow the WeChat public account **SecSentry**, then send a private message in the account's chat to join the group.
-
-<div align="center">
-
-<img src="screenshots/wx.png" alt="WeChat public account SecSentry" width="480" />
-
-</div>
-
----
 ## References
 
 https://github.com/oritera/Cairn
