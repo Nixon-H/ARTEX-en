@@ -68,6 +68,11 @@ func TestConversationBatchDeleteReportsMissing(t *testing.T) {
 	}
 	defer m.Close()
 	s := New(context.Background(), m, t.TempDir(), t.TempDir(), t.TempDir())
+	t.Cleanup(func() {
+		for _, tsk := range m.List() {
+			s.engine.StopTask(tsk.ID)
+		}
+	})
 	first, err := m.pg.CreateConversation("mainagent", "batch-http-first", nil)
 	if err != nil {
 		t.Fatal(err)
