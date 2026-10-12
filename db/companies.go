@@ -294,6 +294,11 @@ ORDER BY c.name`)
 }
 
 // GetScope returns all scope rules for a company.
+// TaskCompanyIDs returns the companies whose scopes are attached to a task.
+func (s *CompanyStore) TaskCompanyIDs(taskID int64) ([]int64, error) {
+	return s.db.TaskCompanyIDs(taskID)
+}
+
 func (s *CompanyStore) GetScope(companyID int64) ([]ScopeRule, error) {
 	rows, err := s.db.Query(`
 SELECT id, company_id, kind,

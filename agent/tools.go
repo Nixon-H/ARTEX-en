@@ -538,6 +538,40 @@ func (t *ToolSet) graphOverviewData() map[string]any {
 					}
 				}
 			}
+			if t.cs != nil {
+				if cids, err := t.cs.TaskCompanyIDs(t.taskID); err == nil && len(cids) > 0 {
+					srows := make([]map[string]any, 0, len(cids))
+					for _, cid := range cids {
+						rules, err := t.cs.GetScope(cid)
+						if err != nil {
+							continue
+						}
+						crules := make([]map[string]any, 0, len(rules))
+						for _, r := range rules {
+							crules = append(crules, map[string]any{"kind": r.Kind, "value": r.Raw})
+						}
+						srows = append(srows, map[string]any{"company_scope": crules})
+					}
+					if len(srows) > 0 {
+						m["scope"] = srows
+					}
+					var kws []string
+					for _, sr := range srows {
+						if crs, ok := sr["company_scope"].([]map[string]any); ok {
+							for _, r := range crs {
+								if k, _ := r["kind"].(string); k == "keyword" {
+									if v, _ := r["value"].(string); v != "" {
+										kws = append(kws, v)
+									}
+								}
+							}
+						}
+					}
+					if len(srows) > 0 {
+						srows[0]["company_keywords"] = kws
+					}
+				}
+			}
 			if hosts, err := t.as.HostsByTaskWithSources(t.taskID); err == nil {
 				// Only give the total host count; no longer flatten the host list into graph_overview (in large-scope tasks that is a large mass of strings carried redundantly every round
 				// with limited value for planning decisions); look up specific hosts with list_assets as needed.

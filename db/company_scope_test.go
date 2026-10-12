@@ -337,7 +337,8 @@ func TestCompanyScopeAttribution(t *testing.T) {
 	uniq := startMax + 1
 	root := fmt.Sprintf("scopetest%d.com", uniq)
 	sub := "api." + root
-	ipIn := "198.51.100.9"
+	octet := byte(uniq % 250)
+	ipIn := fmt.Sprintf("198.51.%d.9", octet)
 	ipOut := "203.0.113.9"
 	outDomain := fmt.Sprintf("other%d.net", uniq)
 
@@ -357,7 +358,7 @@ func TestCompanyScopeAttribution(t *testing.T) {
 		t.Fatalf("pre-scope asset should be unattributed, got %v", *preCompanyID)
 	}
 
-	cs.AddScope(cid, []string{root, "198.51.100.0/24"}, "unit test")
+	cs.AddScope(cid, []string{root, fmt.Sprintf("198.51.%d.0/24", octet)}, "unit test")
 
 	mustCid := func(id int64, want int64, label string) {
 		var cID *int64
